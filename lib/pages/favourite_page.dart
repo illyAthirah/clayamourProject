@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:clayamour/pages/favourite_product.dart';
+import 'package:clayamour/logic/favourite_product.dart';
 
 class FavouritePage extends StatefulWidget {
   const FavouritePage({super.key});

@@ -1,8 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:clayamour/pages/product_details_page.dart';
 import 'package:clayamour/pages/customize_bouquet_page.dart';
-import 'package:clayamour/pages/favourite_product.dart';
-
-import 'package:flutter/material.dart';
+import 'package:clayamour/pages/catalog_page.dart';
+import 'package:clayamour/pages/cart_page.dart';
+import 'package:clayamour/logic/favourite_product.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -30,13 +31,11 @@ class _HomePageState extends State<HomePage>
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 700),
+      duration: const Duration(milliseconds: 650),
     );
-
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
-
-    _slideUp = Tween<Offset>(
-      begin: const Offset(0, 0.08),
+    _slideUp = Tween(
+      begin: const Offset(0, 0.06),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
@@ -54,17 +53,22 @@ class _HomePageState extends State<HomePage>
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        elevation: 0,
         backgroundColor: background,
+        elevation: 0,
         title: const Text(
-          'ClayAmour',
-          style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary),
+          "ClayAmour",
+          style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.shopping_bag_outlined),
             color: textPrimary,
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CartPage()),
+              );
+            },
           ),
         ],
       ),
@@ -75,27 +79,59 @@ class _HomePageState extends State<HomePage>
           children: [
             FadeTransition(
               opacity: _fade,
-              child: SlideTransition(position: _slideUp, child: _heroText()),
+              child: SlideTransition(position: _slideUp, child: _heroSection()),
             ),
-            const SizedBox(height: 28),
+
+            const SizedBox(height: 26),
+
             FadeTransition(
               opacity: _fade,
               child: SlideTransition(position: _slideUp, child: _primaryCTA()),
             ),
+
             const SizedBox(height: 36),
-            _browseText(),
+
+            // 🔹 Browse section
+            _sectionHeader(
+              title: "Browse our designs",
+              action: "View all",
+              onActionTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CatalogPage()),
+                );
+              },
+            ),
+
             const SizedBox(height: 14),
+
             _categories(),
-            const SizedBox(height: 36),
-            FadeTransition(opacity: _fade, child: _curatedGrid()),
+
+            const SizedBox(height: 28),
+
+            // 🔹 Featured section
+            const Text(
+              "Featured Bouquets",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: textPrimary,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            FadeTransition(opacity: _fade, child: _featuredGrid()),
           ],
         ),
       ),
     );
   }
 
-  // 🖋 Hero text
-  Widget _heroText() {
+  // ===========================
+  // Hero
+  // ===========================
+  Widget _heroSection() {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -103,87 +139,100 @@ class _HomePageState extends State<HomePage>
           "Design a bouquet\nas unique as them",
           style: TextStyle(
             fontSize: 28,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
             height: 1.2,
             color: textPrimary,
           ),
         ),
         SizedBox(height: 12),
         Text(
-          "Handcrafted clay bouquets, made to order with care and meaning.",
+          "Handcrafted clay bouquets, made with care and meaning.",
           style: TextStyle(fontSize: 15, color: textSecondary),
         ),
       ],
     );
   }
 
-  // ✨ Primary CTA
+  // ===========================
+  // CTA
+  // ===========================
   Widget _primaryCTA() {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const CustomizeBouquetPage()),
-          );
-        },
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [primary, accent],
-            ),
-            borderRadius: BorderRadius.circular(24),
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CustomizeBouquetPage()),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [primary, accent],
           ),
-          child: Row(
-            children: const [
-              Icon(Icons.auto_awesome, color: Colors.white, size: 34),
-              SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Start Custom Bouquet",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.auto_awesome, color: Colors.white, size: 32),
+            SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Start Custom Bouquet",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      "Choose flowers, characters & colors",
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
-                    ),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    "Choose flowers, characters & theme",
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ],
               ),
-              Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
-            ],
-          ),
+            ),
+            Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+          ],
         ),
       ),
     );
   }
 
-  // 🧠 Micro-copy
-  Widget _browseText() {
-    return const Text(
-      "Or browse our designs",
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: textPrimary,
-      ),
+  // ===========================
+  // Section Header
+  // ===========================
+  Widget _sectionHeader({
+    required String title,
+    required String action,
+    required VoidCallback onActionTap,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: textPrimary,
+          ),
+        ),
+        TextButton(onPressed: onActionTap, child: const Text("View all")),
+      ],
     );
   }
 
-  // 📂 Categories
+  // ===========================
+  // Categories
+  // ===========================
   Widget _categories() {
     return Row(
       children: [
@@ -195,17 +244,24 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _categoryChip(IconData icon, String label) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
+    return Container(
+      margin: const EdgeInsets.only(right: 12),
       child: InkWell(
-        onTap: () {
-          // later: filter by category
-        },
         borderRadius: BorderRadius.circular(20),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CatalogPage(initialCategory: label),
+            ),
+          );
+        },
         child: Container(
-          margin: const EdgeInsets.only(right: 12),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Row(
             children: [
               Icon(icon, size: 18, color: primary),
@@ -214,7 +270,7 @@ class _HomePageState extends State<HomePage>
                 label,
                 style: const TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                   color: textPrimary,
                 ),
               ),
@@ -225,8 +281,10 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // 🛍 Curated grid
-  Widget _curatedGrid() {
+  // ===========================
+  // Featured Products
+  // ===========================
+  Widget _featuredGrid() {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -235,139 +293,103 @@ class _HomePageState extends State<HomePage>
         crossAxisCount: 2,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 0.8,
+        childAspectRatio: 0.78,
       ),
       itemBuilder: (_, __) => _productCard(),
     );
   }
 
   Widget _productCard() {
-    return Material(
-      color: Colors.white,
+    const productId = "rose_bloom";
+
+    return InkWell(
       borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ProductDetailsPage()),
-          );
-        },
-        borderRadius: BorderRadius.circular(22),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 14,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 🔝 Image + Favourite
-              Expanded(
-                child: Stack(
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEED6C4),
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(22),
-                        ),
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.local_florist, size: 38),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ProductDetailsPage()),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  Container(
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEED6C4),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(22),
                       ),
                     ),
-
-                    // ❤️ Favourite button
-                    Positioned(
-                      top: 10,
-                      right: 10,
-                      child: Material(
-                        color: Colors.white,
-                        shape: const CircleBorder(),
-                        elevation: 3,
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () {
-                            setState(() {
-                              FavouriteProductStore.toggleFavourite(
-                                FavouriteProduct(
-                                  id: "rose_bloom",
-                                  name: "Rose Bloom",
-                                  price: 89,
-                                ),
-                              );
-                            });
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: Icon(
-                              FavouriteProductStore.isFavourite("rose_bloom")
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
-                              size: 18,
-                              color: const Color(0xFFE57373),
+                    child: const Center(
+                      child: Icon(Icons.local_florist, size: 38),
+                    ),
+                  ),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          FavouriteProductStore.toggleFavourite(
+                            FavouriteProduct(
+                              id: productId,
+                              name: "Rose Bloom",
+                              price: 89,
                             ),
-                          ),
+                          );
+                        });
+                      },
+                      child: CircleAvatar(
+                        backgroundColor: Colors.white,
+                        child: Icon(
+                          FavouriteProductStore.isFavourite(productId)
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          size: 18,
+                          color: Colors.redAccent,
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-
-              // 📄 Product info
-              const Padding(
-                padding: EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Rose Bloom",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: textPrimary,
-                      ),
+            ),
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Rose Bloom",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: textPrimary,
                     ),
-                    SizedBox(height: 4),
-
-                    // ⭐ Rating
-                    Row(
-                      children: [
-                        Icon(Icons.star, size: 14, color: Color(0xFFFFC107)),
-                        SizedBox(width: 4),
-                        Text(
-                          "4.8",
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: textPrimary,
-                          ),
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          "(126)",
-                          style: TextStyle(fontSize: 12, color: textSecondary),
-                        ),
-                      ],
-                    ),
-
-                    SizedBox(height: 6),
-                    Text(
-                      "From RM89",
-                      style: TextStyle(fontSize: 13, color: textSecondary),
-                    ),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    "From RM89",
+                    style: TextStyle(fontSize: 13, color: textSecondary),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

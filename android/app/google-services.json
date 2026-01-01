@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "909615921530",
+    "project_id": "clayamour04",
+    "storage_bucket": "clayamour04.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:909615921530:android:e442c1fa5ce9b38fbdbec3",
+        "android_client_info": {
+          "package_name": "com.example.clayamour"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9rlwWQqW2E5kIOwTB_TVSDPAUHdUcHbo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

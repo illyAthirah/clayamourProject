@@ -18,7 +18,7 @@ class _LandingPageState extends State<LandingPage> {
   static const Color textPrimary = Color(0xFF2E2E2E);
   static const Color textSecondary = Color(0xFF6F6F6F);
 
-  void _goToHome() {
+  void _goToAuth() {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const AuthPage()),
@@ -32,21 +32,22 @@ class _LandingPageState extends State<LandingPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // 🏷 Brand header
+            // 🔹 Top bar with Skip
             Padding(
-              padding: const EdgeInsets.only(top: 24),
-              child: Text(
-                "ClayAmour",
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                  color: textPrimary,
+              padding: const EdgeInsets.only(top: 12, right: 16),
+              child: Align(
+                alignment: Alignment.topRight,
+                child: TextButton(
+                  onPressed: _goToAuth,
+                  child: const Text(
+                    "Skip",
+                    style: TextStyle(color: textSecondary),
+                  ),
                 ),
               ),
             ),
 
-            // 🌸 Pages
+            // 🔹 Pages
             Expanded(
               child: PageView(
                 controller: _controller,
@@ -55,7 +56,7 @@ class _LandingPageState extends State<LandingPage> {
                 },
                 children: const [
                   _OnboardPage(
-                    title: "Handcrafted bouquets,\nmade just for them",
+                    title: "Handcrafted bouquets\nmade just for them",
                     subtitle:
                         "Thoughtfully designed clay bouquets created with care and meaning.",
                     icon: Icons.local_florist,
@@ -85,40 +86,36 @@ class _LandingPageState extends State<LandingPage> {
               ),
             ),
 
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
 
-            // 🚀 CTA
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primary,
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
+            // 🚀 CTA (ONLY on last page)
+            if (_currentPage == 2)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primary,
+                      elevation: 5,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
                     ),
-                  ),
-                  onPressed: _goToHome,
-                  child: const Text(
-                    "Get Started",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    onPressed: _goToAuth,
+                    child: const Text(
+                      "Start Designing",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 12),
-
-            // subtle hint
-            Text(
-              "You can customize anytime",
-              style: TextStyle(fontSize: 12, color: textSecondary),
-            ),
-
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -127,7 +124,7 @@ class _LandingPageState extends State<LandingPage> {
 
   Widget _indicator(bool active) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
       margin: const EdgeInsets.symmetric(horizontal: 5),
       height: 8,
       width: active ? 22 : 8,
@@ -139,7 +136,11 @@ class _LandingPageState extends State<LandingPage> {
   }
 }
 
-class _OnboardPage extends StatelessWidget {
+// =======================================================
+// Onboarding Page (Animated)
+// =======================================================
+
+class _OnboardPage extends StatefulWidget {
   final String title;
   final String subtitle;
   final IconData icon;
@@ -151,59 +152,110 @@ class _OnboardPage extends StatelessWidget {
   });
 
   @override
+  State<_OnboardPage> createState() => _OnboardPageState();
+}
+
+class _OnboardPageState extends State<_OnboardPage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fade;
+  late Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+
+    _fade = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    );
+
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.06),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // 🌷 Soft hero block
-          Container(
-            height: 220,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(32),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _LandingPageState.primary.withOpacity(0.25),
-                  _LandingPageState.primary.withOpacity(0.05),
-                ],
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(
+        position: _slide,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // 🌸 Hero Card
+              Container(
+                height: 240,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(36),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      _LandingPageState.primary.withOpacity(0.35),
+                      _LandingPageState.primary.withOpacity(0.08),
+                    ],
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    widget.icon,
+                    size: 56,
+                    color: _LandingPageState.primary,
+                  ),
+                ),
               ),
-            ),
-            child: Center(
-              child: Icon(icon, size: 48, color: _LandingPageState.primary),
-            ),
+
+              const SizedBox(height: 36),
+
+              Text(
+                widget.title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                  color: _LandingPageState.textPrimary,
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              Text(
+                widget.subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 15,
+                  height: 1.6,
+                  color: _LandingPageState.textSecondary,
+                ),
+              ),
+            ],
           ),
-
-          const SizedBox(height: 40),
-
-          // ✨ Headline
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              height: 1.25,
-              color: _LandingPageState.textPrimary,
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // 🧠 Supporting text
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 15,
-              height: 1.6,
-              color: _LandingPageState.textSecondary,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

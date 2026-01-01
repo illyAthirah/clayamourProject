@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:clayamour/pages/checkout_page.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -58,7 +59,11 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
             subtitle: "Soft Pink Theme",
             basePrice: 0,
             flowers: {
-              "Sunflower": CartLineItem(name: "Sunflower", unitPrice: 6, qty: 12),
+              "Sunflower": CartLineItem(
+                name: "Sunflower",
+                unitPrice: 6,
+                qty: 12,
+              ),
             },
             characters: {},
             theme: "Soft Pink",
@@ -91,8 +96,18 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
   String formatDate(DateTime d) {
     const months = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
     ];
     return "${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}";
   }
@@ -181,7 +196,11 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                           subtitle: "New Custom Design",
                           basePrice: 0,
                           flowers: {
-                            "Rose": CartLineItem(name: "Rose", unitPrice: 8, qty: 6),
+                            "Rose": CartLineItem(
+                              name: "Rose",
+                              unitPrice: 8,
+                              qty: 6,
+                            ),
                           },
                           characters: {},
                           theme: "Pastel",
@@ -251,7 +270,9 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                 final active = item.theme == t;
                 return ListTile(
                   title: Text(t),
-                  trailing: active ? const Icon(Icons.check, color: primary) : null,
+                  trailing: active
+                      ? const Icon(Icons.check, color: primary)
+                      : null,
                   onTap: () => Navigator.pop(context, t),
                 );
               }),
@@ -279,7 +300,10 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: primary),
               onPressed: () => Navigator.pop(context, controller.text.trim()),
@@ -384,7 +408,9 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                     child: Column(
                       children: [
-                        ...g.items.map((item) => _cartItemCard(groupIndex, item)),
+                        ...g.items.map(
+                          (item) => _cartItemCard(groupIndex, item),
+                        ),
                         const SizedBox(height: 6),
 
                         // Add another bouquet for this date
@@ -398,7 +424,9 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                           ),
                           onPressed: () => _addBouquetForDate(groupIndex),
                           icon: const Icon(Icons.add),
-                          label: const Text("Add another bouquet for this date"),
+                          label: const Text(
+                            "Add another bouquet for this date",
+                          ),
                         ),
                       ],
                     ),
@@ -443,7 +471,10 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                     const SizedBox(height: 2),
                     Text(
                       item.subtitle,
-                      style: const TextStyle(color: textSecondary, fontSize: 13),
+                      style: const TextStyle(
+                        color: textSecondary,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -503,7 +534,10 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
             children: [
               const Text(
                 "Bouquet total",
-                style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary),
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: textPrimary,
+                ),
               ),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 220),
@@ -565,10 +599,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
             style: const TextStyle(fontWeight: FontWeight.w700),
           ),
         ),
-        _qtyBtn(
-          icon: Icons.add,
-          onTap: () => setState(() => li.qty++),
-        ),
+        _qtyBtn(icon: Icons.add, onTap: () => setState(() => li.qty++)),
       ],
     );
   }
@@ -618,7 +649,11 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _pillRow({required IconData icon, required String label, required String value}) {
+  Widget _pillRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -631,7 +666,10 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(fontWeight: FontWeight.w700, color: textPrimary),
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: textPrimary,
+            ),
           ),
           const Spacer(),
           Text(value, style: const TextStyle(color: textSecondary)),
@@ -652,7 +690,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
             color: Colors.black12,
             blurRadius: 10,
             offset: Offset(0, -2),
-          )
+          ),
         ],
       ),
       child: SafeArea(
@@ -669,7 +707,10 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                   children: [
                     Text(
                       "Selected: $selectedCount bouquet${selectedCount == 1 ? "" : "s"}",
-                      style: const TextStyle(color: textSecondary, fontSize: 12),
+                      style: const TextStyle(
+                        color: textSecondary,
+                        fontSize: 12,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -693,7 +734,16 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                onPressed: selectedCount == 0 ? null : () {},
+                onPressed: selectedCount == 0
+                    ? null
+                    : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CheckoutPage(),
+                          ),
+                        );
+                      },
                 child: const Text(
                   "Checkout",
                   style: TextStyle(fontWeight: FontWeight.w700),
