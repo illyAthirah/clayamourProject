@@ -1,0 +1,13 @@
+{
+  "name": "clayamour-scripts",
+  "version": "1.0.0",
+  "description": "Database seeding scripts for ClayAmour",
+  "scripts": {
+    "seed": "node seed_products.js",
+    "seed:force": "node seed_products.js --force",
+    "check": "node check_db.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

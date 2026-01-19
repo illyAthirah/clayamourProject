@@ -43,3 +43,19 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Node.js dependencies
+node_modules/
+**/node_modules/
+package-lock.json
+
+# Firebase cache
+.firebase/
+
+# Temporary/test folders
+/public/
+/y/
+
+# Unused platform folders
+/ios/
+/macos/
