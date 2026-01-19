@@ -22,6 +22,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   final _confirmCtrl = TextEditingController();
   bool _saving = false;
 
+  bool _passwordsMatch = false;
+  int _passwordStrength = 0; // 0 = weak, 1 = medium, 2 = strong
+
   @override
   void dispose() {
     _currentCtrl.dispose();
@@ -53,13 +56,45 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _passwordField("Current Password", _currentCtrl),
-            _passwordField("New Password", _newCtrl),
-            _passwordField("Confirm New Password", _confirmCtrl),
-            const SizedBox(height: 12),
-            const Text(
-              "Password must be at least 8 characters.",
-              style: TextStyle(fontSize: 12, color: textSecondary),
+            _passwordField("New Password", _newCtrl, onChanged: _checkPassword),
+            const SizedBox(height: 6),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [_strengthBar(0), _strengthBar(1), _strengthBar(2)],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _passwordStrength == 0
+                      ? "Weak password"
+                      : _passwordStrength == 1
+                      ? "Medium strength"
+                      : "Strong password",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _passwordStrength == 0
+                        ? Colors.red
+                        : _passwordStrength == 1
+                        ? Colors.orange
+                        : Colors.green,
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
             ),
+
+            _passwordField(
+              "Confirm New Password",
+              _confirmCtrl,
+              onChanged: (v) {
+                setState(() {
+                  _passwordsMatch = v == _newCtrl.text;
+                });
+              },
+            ),
+
+            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -76,7 +111,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            onPressed: _saving ? null : _changePassword,
+            onPressed: (_saving || !_passwordsMatch || _passwordStrength == 0)
+                ? null
+                : _changePassword,
             child: Text(
               _saving ? "Updating..." : "Update Password",
               style: const TextStyle(fontSize: 15),
@@ -87,7 +124,11 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     );
   }
 
-  Widget _passwordField(String label, TextEditingController controller) {
+  Widget _passwordField(
+    String label,
+    TextEditingController controller, {
+    ValueChanged<String>? onChanged,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -95,15 +136,13 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 13,
-              color: textSecondary,
-            ),
+            style: const TextStyle(fontSize: 13, color: textSecondary),
           ),
           const SizedBox(height: 6),
           TextField(
             controller: controller,
             obscureText: true,
+            onChanged: onChanged,
             decoration: InputDecoration(
               filled: true,
               fillColor: surface,
@@ -115,6 +154,31 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _strengthBar(int level) {
+    Color activeColor;
+
+    if (_passwordStrength == 0) {
+      activeColor = Colors.red;
+    } else if (_passwordStrength == 1) {
+      activeColor = Colors.orange;
+    } else {
+      activeColor = Colors.green;
+    }
+
+    return Expanded(
+      child: Container(
+        height: 6,
+        margin: const EdgeInsets.only(right: 6),
+        decoration: BoxDecoration(
+          color: _passwordStrength >= level + 1
+              ? activeColor
+              : Colors.grey.shade300,
+          borderRadius: BorderRadius.circular(6),
+        ),
       ),
     );
   }
@@ -144,20 +208,45 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       await user.reauthenticateWithCredential(credential);
       await user.updatePassword(newPass);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Password updated.")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Password updated.")));
       Navigator.pop(context);
     } on FirebaseAuthException catch (e) {
-      _showError(e.message ?? "Failed to update password.");
+      switch (e.code) {
+        case 'wrong-password':
+          _showError("Current password is incorrect.");
+          break;
+        case 'weak-password':
+          _showError("Password is too weak.");
+          break;
+        case 'requires-recent-login':
+          _showError("Please log in again and try.");
+          break;
+        default:
+          _showError("Failed to update password.");
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
+  void _checkPassword(String value) {
+    int strength = 0;
+
+    if (value.length >= 8) strength++;
+    if (RegExp(r'[A-Z]').hasMatch(value) && RegExp(r'[0-9]').hasMatch(value))
+      strength++;
+
+    setState(() {
+      _passwordStrength = strength;
+      _passwordsMatch = value == _confirmCtrl.text;
+    });
+  }
+
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
