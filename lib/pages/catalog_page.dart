@@ -13,6 +13,11 @@ class CatalogPage extends StatefulWidget {
 }
 
 class _CatalogPageState extends State<CatalogPage> {
+  String _imageFromName(String name) {
+    return 'assets/flowers/'
+        '${name.toLowerCase().replaceAll(' ', '_')}.png';
+  }
+
   // ClayAmour palette
   static const Color primary = Color(0xFFE8A0BF);
   static const Color background = Color(0xFFFAF7F5);
@@ -23,12 +28,7 @@ class _CatalogPageState extends State<CatalogPage> {
 
   late String selectedCategory;
 
-  final List<String> categories = [
-    "All",
-    "Flowers",
-    "Characters",
-    "Add-Ons",
-  ];
+  final List<String> categories = ["All", "Flowers", "Characters", "Add-Ons"];
 
   @override
   void initState() {
@@ -58,13 +58,13 @@ class _CatalogPageState extends State<CatalogPage> {
       body: uid == null
           ? const Center(child: Text("Please sign in to view catalog."))
           : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream:
-                  FirebaseService.userSubcollection(uid, 'favorites').snapshots(),
+              stream: FirebaseService.userSubcollection(
+                uid,
+                'favorites',
+              ).snapshots(),
               builder: (context, favSnap) {
-                final favIds = favSnap.data?.docs
-                        .map((d) => d.id)
-                        .toSet() ??
-                    <String>{};
+                final favIds =
+                    favSnap.data?.docs.map((d) => d.id).toSet() ?? <String>{};
                 return Column(
                   children: [
                     Padding(
@@ -77,8 +77,9 @@ class _CatalogPageState extends State<CatalogPage> {
                           prefixIcon: const Icon(Icons.search),
                           filled: true,
                           fillColor: Colors.white,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide.none,
@@ -92,8 +93,7 @@ class _CatalogPageState extends State<CatalogPage> {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         scrollDirection: Axis.horizontal,
                         itemCount: categories.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(width: 10),
+                        separatorBuilder: (_, __) => const SizedBox(width: 10),
                         itemBuilder: (_, i) {
                           final c = categories[i];
                           final active = selectedCategory == c;
@@ -101,7 +101,9 @@ class _CatalogPageState extends State<CatalogPage> {
                           return ChoiceChip(
                             label: Text(c),
                             selected: active,
-                            selectedColor: primary.withAlpha((0.18 * 255).round()),
+                            selectedColor: primary.withAlpha(
+                              (0.18 * 255).round(),
+                            ),
                             labelStyle: TextStyle(
                               fontWeight: FontWeight.w600,
                               color: active ? primary : textPrimary,
@@ -117,30 +119,26 @@ class _CatalogPageState extends State<CatalogPage> {
                       child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                         stream: FirebaseService.products().snapshots(),
                         builder: (context, snap) {
-                          if (snap.connectionState ==
-                              ConnectionState.waiting) {
+                          if (snap.connectionState == ConnectionState.waiting) {
                             return const Center(
                               child: CircularProgressIndicator(),
                             );
                           }
-                          final products = snap.data?.docs.map((d) {
+                          final products =
+                              snap.data?.docs.map((d) {
                                 final data = d.data();
-                                return {
-                                  'id': d.id,
-                                  ...data,
-                                };
+                                return {'id': d.id, ...data};
                               }).toList() ??
                               <Map<String, dynamic>>[];
 
                           final filtered = products.where((p) {
-                            final matchesCategory = selectedCategory == "All" ||
+                            final matchesCategory =
+                                selectedCategory == "All" ||
                                 p["category"] == selectedCategory;
                             final matchesSearch = p["name"]
                                 .toString()
                                 .toLowerCase()
-                                .contains(
-                                  _searchCtrl.text.toLowerCase(),
-                                );
+                                .contains(_searchCtrl.text.toLowerCase());
                             return matchesCategory && matchesSearch;
                           }).toList();
 
@@ -151,22 +149,18 @@ class _CatalogPageState extends State<CatalogPage> {
                           }
 
                           return GridView.builder(
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                             itemCount: filtered.length,
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
-                              childAspectRatio: 0.78,
-                            ),
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                  childAspectRatio: 0.78,
+                                ),
                             itemBuilder: (_, i) {
                               final p = filtered[i];
-                              return _productCard(
-                                p,
-                                favIds.contains(p['id']),
-                              );
+                              return _productCard(p, favIds.contains(p['id']));
                             },
                           );
                         },
@@ -208,16 +202,30 @@ class _CatalogPageState extends State<CatalogPage> {
             Expanded(
               child: Stack(
                 children: [
-                  Container(
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFEED6C4),
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(22)),
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(22),
                     ),
-                    child: const Center(
-                      child: Icon(Icons.local_florist, size: 36),
+                    child: Image.asset(
+                      _imageFromName(product["name"]),
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) {
+                        return Container(
+                          color: const Color(0xFFEED6C4),
+                          child: const Center(
+                            child: Icon(
+                              Icons.image_not_supported_outlined,
+                              size: 36,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
+
                   Positioned(
                     top: 10,
                     right: 10,
@@ -251,10 +259,7 @@ class _CatalogPageState extends State<CatalogPage> {
                   const SizedBox(height: 4),
                   Text(
                     "From RM${product["price"]}",
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: textSecondary,
-                    ),
+                    style: const TextStyle(fontSize: 13, color: textSecondary),
                   ),
                 ],
               ),
@@ -265,14 +270,13 @@ class _CatalogPageState extends State<CatalogPage> {
     );
   }
 
-  Future<void> _toggleFavorite(
-    Map<String, dynamic> product,
-    bool isFav,
-  ) async {
+  Future<void> _toggleFavorite(Map<String, dynamic> product, bool isFav) async {
     final uid = FirebaseService.uid;
     if (uid == null) return;
-    final ref = FirebaseService.userSubcollection(uid, 'favorites')
-        .doc(product['id'].toString());
+    final ref = FirebaseService.userSubcollection(
+      uid,
+      'favorites',
+    ).doc(product['id'].toString());
     if (isFav) {
       await ref.delete();
     } else {
@@ -285,4 +289,3 @@ class _CatalogPageState extends State<CatalogPage> {
     }
   }
 }
-

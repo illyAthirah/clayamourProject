@@ -70,7 +70,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
                     .map((item) => _selectedItemCard(item))
                     .toList(),
               ),
-            _addButton("Add Flowers", "Flowers"),
+            _addButton("Add Bouquet Base", "Custom"),
             const SizedBox(height: 8),
             _addButton("Add Characters", "Characters"),
             const SizedBox(height: 32),
@@ -132,15 +132,25 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
       ),
       child: Row(
         children: [
-          Container(
-            height: 48,
-            width: 48,
-            decoration: BoxDecoration(
-              color: primary.withAlpha((0.15 * 255).round()),
-              borderRadius: BorderRadius.circular(14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Image.asset(
+                item.image,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) {
+                  return const Icon(
+                    Icons.image_not_supported_outlined,
+                    color: textSecondary,
+                    size: 32,
+                  );
+                },
+              ),
             ),
-            child: const Icon(Icons.local_florist, color: primary),
           ),
+
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -230,9 +240,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
       style: OutlinedButton.styleFrom(
         foregroundColor: primary,
         side: const BorderSide(color: primary),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       onPressed: () => _showPicker(category, label),
       child: Text(label),
@@ -273,12 +281,14 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
                 child: Center(child: CircularProgressIndicator()),
               );
             }
-            final items = snap.data?.docs.map((d) {
+            final items =
+                snap.data?.docs.map((d) {
                   final data = d.data();
                   return _Item(
                     d.id,
-                    data['name']?.toString() ?? 'Item',
+                    data['name'] ?? 'Item',
                     (data['price'] ?? 0) as int,
+                    image: _imageFromName(data['name']),
                     category: category,
                   );
                 }).toList() ??
@@ -327,8 +337,9 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
                 onChanged: (v) {
                   setModalState(() {
                     filtered = items
-                        .where((i) =>
-                            i.name.toLowerCase().contains(v.toLowerCase()))
+                        .where(
+                          (i) => i.name.toLowerCase().contains(v.toLowerCase()),
+                        )
                         .toList();
                   });
                 },
@@ -337,8 +348,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
               Expanded(
                 child: GridView.builder(
                   itemCount: filtered.length,
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: 14,
                     crossAxisSpacing: 14,
@@ -373,20 +383,27 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
           child: Column(
             children: [
               Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: primary.withAlpha((0.12 * 255).round()),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.local_florist,
-                      size: 36,
-                      color: primary,
-                    ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Image.asset(
+                    item.image,
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) {
+                      return Container(
+                        color: primary.withAlpha((0.1 * 255).round()),
+                        child: const Icon(
+                          Icons.image_not_supported_outlined,
+                          color: textSecondary,
+                          size: 40,
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
+
               const SizedBox(height: 8),
               Text(
                 item.name,
@@ -517,9 +534,9 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
     final uid = FirebaseService.uid;
     if (uid == null) return;
     if (_selectedItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Select items first.")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Select items first.")));
       return;
     }
 
@@ -538,9 +555,8 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
       }
     }
 
-    final selectedDate = _readyDate ?? DateTime.now().add(
-      const Duration(days: 21),
-    );
+    final selectedDate =
+        _readyDate ?? DateTime.now().add(const Duration(days: 21));
     await FirebaseService.userSubcollection(uid, 'cart').add({
       'type': 'custom',
       'title': 'Custom Bouquet',
@@ -564,6 +580,11 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
       _customMessage = "";
     });
   }
+
+  String _imageFromName(String name) {
+    return 'assets/single/'
+        '${name.toLowerCase().replaceAll(' ', '_')}.png';
+  }
 }
 
 class _Item {
@@ -571,11 +592,16 @@ class _Item {
   final String name;
   final int price;
   final String category;
+  final String image;
   int quantity;
 
-  _Item(this.id, this.name, this.price, {this.category = "Custom"})
-      : quantity = 0;
+  _Item(
+    this.id,
+    this.name,
+    this.price, {
+    required this.image,
+    this.category = "Custom",
+  }) : quantity = 0;
 
-  _Item copy() => _Item(id, name, price, category: category);
+  _Item copy() => _Item(id, name, price, image: image, category: category);
 }
-
