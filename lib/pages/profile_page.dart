@@ -5,6 +5,8 @@ import 'package:clayamour/pages/my_orders_page.dart';
 import 'package:clayamour/pages/delivery_addresses_page.dart';
 import 'package:clayamour/pages/edit_profile_page.dart';
 import 'package:clayamour/pages/change_password_page.dart';
+import 'package:clayamour/pages/help_center_page.dart';
+import 'package:clayamour/pages/about_clayamour_page.dart';
 import 'package:clayamour/pages/auth_page.dart';
 import 'package:clayamour/services/firebase_service.dart';
 
@@ -42,10 +44,12 @@ class ProfilePage extends StatelessWidget {
                   child: Column(
                     children: [
                       _profileHeader(
-                        name: data['name']?.toString() ??
+                        name:
+                            data['name']?.toString() ??
                             FirebaseService.currentUser?.displayName ??
                             'User',
-                        email: data['email']?.toString() ??
+                        email:
+                            data['email']?.toString() ??
                             FirebaseService.currentUser?.email ??
                             '',
                       ),
@@ -60,7 +64,8 @@ class ProfilePage extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                    builder: (_) => const MyOrdersPage()),
+                                  builder: (_) => const MyOrdersPage(),
+                                ),
                               );
                             },
                           ),
@@ -71,7 +76,8 @@ class ProfilePage extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                    builder: (_) => const FavouritePage()),
+                                  builder: (_) => const FavouritePage(),
+                                ),
                               );
                             },
                           ),
@@ -124,8 +130,30 @@ class ProfilePage extends StatelessWidget {
                       _sectionCard(
                         title: "Support",
                         items: [
-                          _item(Icons.help_outline, "Help Center"),
-                          _item(Icons.info_outline, "About ClayAmour"),
+                          _item(
+                            Icons.help_outline,
+                            "Help Center",
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const HelpCenterPage(),
+                                ),
+                              );
+                            },
+                          ),
+                          _item(
+                            Icons.info_outline,
+                            "About ClayAmour",
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const AboutClayAmourPage(),
+                                ),
+                              );
+                            },
+                          ),
                         ],
                       ),
                       const SizedBox(height: 28),
@@ -253,4 +281,3 @@ class ProfilePage extends StatelessWidget {
     );
   }
 }
-
