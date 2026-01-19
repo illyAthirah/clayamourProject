@@ -5,6 +5,7 @@ import 'package:clayamour/pages/my_orders_page.dart';
 import 'package:clayamour/pages/delivery_addresses_page.dart';
 import 'package:clayamour/pages/edit_profile_page.dart';
 import 'package:clayamour/pages/change_password_page.dart';
+import 'package:clayamour/pages/auth_page.dart';
 import 'package:clayamour/services/firebase_service.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -237,6 +238,12 @@ class ProfilePage extends StatelessWidget {
         ),
         onPressed: () async {
           await FirebaseService.signOut();
+          if (!context.mounted) return;
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const AuthPage()),
+            (route) => false,
+          );
         },
         child: const Text(
           "Logout",
