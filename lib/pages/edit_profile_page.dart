@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:clayamour/services/firebase_service.dart';
+import 'package:flutter/services.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -54,19 +55,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
           : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
               stream: FirebaseService.userDoc(uid).snapshots(),
               builder: (context, snap) {
-                final data = snap.data?.data() ?? {};
+                if (!snap.hasData || !snap.data!.exists) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final data = snap.data!.data()!;
+
                 if (!_loaded) {
                   _nameCtrl.text =
-                      data['name']?.toString() ??
-                          FirebaseService.currentUser?.displayName ??
-                          '';
+                      data['name'] ??
+                      FirebaseService.currentUser?.displayName ??
+                      '';
                   _emailCtrl.text =
-                      data['email']?.toString() ??
-                          FirebaseService.currentUser?.email ??
-                          '';
-                  _phoneCtrl.text = data['phone']?.toString() ?? '';
+                      data['email'] ?? FirebaseService.currentUser?.email ?? '';
+                  _phoneCtrl.text = data['phone'] ?? '';
                   _loaded = true;
                 }
+
                 return SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
                   child: Column(
@@ -101,7 +106,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       const SizedBox(height: 32),
                       _inputField(label: "Full Name", controller: _nameCtrl),
                       _inputField(label: "Email", controller: _emailCtrl),
-                      _inputField(label: "Phone Number", controller: _phoneCtrl),
+                      _inputField(
+                        label: "Phone Number",
+                        controller: _phoneCtrl,
+                        isPhone: true,
+                      ),
                     ],
                   ),
                 );
@@ -134,6 +143,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget _inputField({
     required String label,
     required TextEditingController controller,
+    bool isPhone = false,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -142,14 +152,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 13,
-              color: textSecondary,
-            ),
+            style: const TextStyle(fontSize: 13, color: textSecondary),
           ),
           const SizedBox(height: 6),
           TextField(
             controller: controller,
+            keyboardType: isPhone ? TextInputType.phone : TextInputType.text,
+            inputFormatters: isPhone ? [PhoneDashFormatter()] : null,
             decoration: InputDecoration(
               filled: true,
               fillColor: surface,
@@ -167,13 +176,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Future<void> _save() async {
     final uid = FirebaseService.uid;
     if (uid == null) return;
+
     if (_nameCtrl.text.trim().isEmpty || _emailCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Name and email are required.")),
       );
       return;
     }
+
     setState(() => _saving = true);
+
     try {
       await FirebaseService.userDoc(uid).set({
         'name': _nameCtrl.text.trim(),
@@ -181,13 +193,60 @@ class _EditProfilePageState extends State<EditProfilePage> {
         'phone': _phoneCtrl.text.trim(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
       await FirebaseService.currentUser?.updateDisplayName(
         _nameCtrl.text.trim(),
       );
+
+      _loaded = false;
+
       if (!mounted) return;
+
+      // ✅ SUCCESS MESSAGE
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Profile updated successfully."),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
       Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+
+      // ❌ ERROR MESSAGE
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Failed to update profile. Please try again."),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+}
+
+class PhoneDashFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (digits.length <= 3) {
+      return TextEditingValue(
+        text: digits,
+        selection: TextSelection.collapsed(offset: digits.length),
+      );
+    }
+
+    final formatted = '${digits.substring(0, 3)}-${digits.substring(3)}';
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
   }
 }
