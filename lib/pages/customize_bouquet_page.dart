@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:clayamour/services/firebase_service.dart';
 import 'package:flutter/material.dart';
 
 class CustomizeBouquetPage extends StatefulWidget {
@@ -11,28 +13,17 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
   String _selectedTheme = "Soft Pink";
   final List<String> _themes = ["Soft Pink", "Nude", "Pastel", "Lavender"];
   String _customMessage = "";
+  DateTime? _readyDate;
 
-  // 🎨 ClayAmour palette
+  // ClayAmour palette
   static const Color primary = Color(0xFFE8A0BF);
   static const Color background = Color(0xFFFAF7F5);
   static const Color surface = Colors.white;
   static const Color textPrimary = Color(0xFF2E2E2E);
   static const Color textSecondary = Color(0xFF6F6F6F);
 
-  // Selected items (dummy)
+  // Selected items
   final Map<String, _Item> _selectedItems = {};
-
-  // Dummy catalogue
-  final List<_Item> _flowers = [
-    _Item("Rose", 8, "assets/flowers/rose.png"),
-    _Item("Lily", 7, "assets/flowers/lily.png"),
-    _Item("Sunflower", 6, "assets/flowers/sunflower.png"),
-  ];
-
-  final List<_Item> _characters = [
-    _Item("Lotso", 15, "assets/chars/lotso.png"),
-    _Item("Graduate", 25, "assets/chars/graduate.png"),
-  ];
 
   int get _totalPrice {
     int total = 0;
@@ -65,7 +56,6 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _sectionTitle("Build your bouquet"),
-
             if (_selectedItems.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(bottom: 12),
@@ -80,27 +70,20 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
                     .map((item) => _selectedItemCard(item))
                     .toList(),
               ),
-
-            _addButton("Add Flowers", _flowers),
+            _addButton("Add Flowers", "Flowers"),
             const SizedBox(height: 8),
-            _addButton("Add Characters", _characters),
-
+            _addButton("Add Characters", "Characters"),
             const SizedBox(height: 32),
             _sectionTitle("Personalize it"),
-
             _sectionSub("Bouquet Theme"),
             _themeSelector(),
-
             const SizedBox(height: 20),
             _sectionSub("Custom Message"),
             _messageField(),
-
             const SizedBox(height: 32),
             _sectionTitle("Finalize your order"),
-
             _sectionSub("Ready Date"),
-            _calendarPlaceholder(),
-
+            _calendarPicker(),
             const SizedBox(height: 28),
             _priceSummary(),
             const SizedBox(height: 16),
@@ -153,7 +136,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
             height: 48,
             width: 48,
             decoration: BoxDecoration(
-              color: primary.withOpacity(0.15),
+              color: primary.withAlpha((0.15 * 255).round()),
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(Icons.local_florist, color: primary),
@@ -173,8 +156,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
                 const SizedBox(height: 4),
                 Text(
                   "RM${item.price} each",
-                  style:
-                      const TextStyle(fontSize: 13, color: textSecondary),
+                  style: const TextStyle(fontSize: 13, color: textSecondary),
                 ),
               ],
             ),
@@ -212,7 +194,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
         return ChoiceChip(
           label: Text(theme),
           selected: selected,
-          selectedColor: primary.withOpacity(0.2),
+          selectedColor: primary.withAlpha((0.2 * 255).round()),
           labelStyle: TextStyle(
             color: selected ? primary : textPrimary,
             fontWeight: FontWeight.w500,
@@ -243,7 +225,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
     );
   }
 
-  Widget _addButton(String label, List<_Item> source) {
+  Widget _addButton(String label, String category) {
     return OutlinedButton(
       style: OutlinedButton.styleFrom(
         foregroundColor: primary,
@@ -252,14 +234,14 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
           borderRadius: BorderRadius.circular(20),
         ),
       ),
-      onPressed: () => _showPicker(source, label),
+      onPressed: () => _showPicker(category, label),
       child: Text(label),
     );
   }
 
   Widget _qtyButton(IconData icon, VoidCallback onTap) {
     return Material(
-      color: primary.withOpacity(0.15),
+      color: primary.withAlpha((0.15 * 255).round()),
       shape: const CircleBorder(),
       child: InkWell(
         onTap: onTap,
@@ -272,7 +254,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
     );
   }
 
-  void _showPicker(List<_Item> items, String title) {
+  void _showPicker(String category, String title) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -280,66 +262,93 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
       ),
       builder: (_) {
-        List<_Item> filtered = List.from(items);
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirebaseService.products()
+              .where('category', isEqualTo: category)
+              .snapshots(),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const SizedBox(
+                height: 240,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final items = snap.data?.docs.map((d) {
+                  final data = d.data();
+                  return _Item(
+                    d.id,
+                    data['name']?.toString() ?? 'Item',
+                    (data['price'] ?? 0) as int,
+                    category: category,
+                  );
+                }).toList() ??
+                <_Item>[];
 
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                20,
-                20,
-                MediaQuery.of(context).viewInsets.bottom + 20,
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: "Search...",
-                      prefixIcon: const Icon(Icons.search),
-                      filled: true,
-                      fillColor: surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    onChanged: (v) {
-                      setModalState(() {
-                        filtered = items
-                            .where((i) =>
-                                i.name.toLowerCase().contains(v.toLowerCase()))
-                            .toList();
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: GridView.builder(
-                      itemCount: filtered.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 14,
-                        crossAxisSpacing: 14,
-                        childAspectRatio: 0.78,
-                      ),
-                      itemBuilder: (_, i) => _pickerGridCard(filtered[i]),
-                    ),
-                  ),
-                ],
-              ),
-            );
+            return _pickerContent(items, title);
           },
+        );
+      },
+    );
+  }
+
+  Widget _pickerContent(List<_Item> items, String title) {
+    List<_Item> filtered = List.from(items);
+    return StatefulBuilder(
+      builder: (context, setModalState) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: textPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: InputDecoration(
+                  hintText: "Search...",
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                onChanged: (v) {
+                  setModalState(() {
+                    filtered = items
+                        .where((i) =>
+                            i.name.toLowerCase().contains(v.toLowerCase()))
+                        .toList();
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: GridView.builder(
+                  itemCount: filtered.length,
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 14,
+                    crossAxisSpacing: 14,
+                    childAspectRatio: 0.78,
+                  ),
+                  itemBuilder: (_, i) => _pickerGridCard(filtered[i]),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -366,20 +375,14 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: primary.withOpacity(0.12),
+                    color: primary.withAlpha((0.12 * 255).round()),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Center(
-                    child: Image.asset(
-                      item.image,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) {
-                        return const Icon(
-                          Icons.local_florist,
-                          size: 36,
-                          color: primary,
-                        );
-                      },
+                  child: const Center(
+                    child: Icon(
+                      Icons.local_florist,
+                      size: 36,
+                      color: primary,
                     ),
                   ),
                 ),
@@ -394,8 +397,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
               ),
               Text(
                 "RM${item.price}",
-                style:
-                    const TextStyle(fontSize: 13, color: textSecondary),
+                style: const TextStyle(fontSize: 13, color: textSecondary),
               ),
             ],
           ),
@@ -404,24 +406,30 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
     );
   }
 
-  Widget _calendarPlaceholder() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.calendar_month, color: primary),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              "Select an available date (3–4 weeks preparation)",
-              style: TextStyle(color: textSecondary),
+  Widget _calendarPicker() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: _pickDate,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_month, color: primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                _readyDate == null
+                    ? "Select an available date (3-4 weeks preparation)"
+                    : _formatDate(_readyDate!),
+                style: const TextStyle(color: textSecondary),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -455,7 +463,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
       color: primary,
       borderRadius: BorderRadius.circular(22),
       child: InkWell(
-        onTap: () {},
+        onTap: _addToCart,
         borderRadius: BorderRadius.circular(22),
         child: Container(
           width: double.infinity,
@@ -473,18 +481,101 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
       ),
     );
   }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _readyDate ?? now.add(const Duration(days: 21)),
+      firstDate: now.add(const Duration(days: 21)),
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() => _readyDate = picked);
+    }
+  }
+
+  String _formatDate(DateTime d) {
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    return "${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}";
+  }
+
+  Future<void> _addToCart() async {
+    final uid = FirebaseService.uid;
+    if (uid == null) return;
+    if (_selectedItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Select items first.")),
+      );
+      return;
+    }
+
+    final flowers = <String, dynamic>{};
+    final characters = <String, dynamic>{};
+    for (final item in _selectedItems.values) {
+      final entry = {
+        'name': item.name,
+        'unitPrice': item.price,
+        'qty': item.quantity,
+      };
+      if (item.category == 'Characters') {
+        characters[item.name] = entry;
+      } else {
+        flowers[item.name] = entry;
+      }
+    }
+
+    final selectedDate = _readyDate ?? DateTime.now().add(
+      const Duration(days: 21),
+    );
+    await FirebaseService.userSubcollection(uid, 'cart').add({
+      'type': 'custom',
+      'title': 'Custom Bouquet',
+      'subtitle': _selectedTheme,
+      'basePrice': 0,
+      'flowers': flowers,
+      'characters': characters,
+      'theme': _selectedTheme,
+      'message': _customMessage,
+      'readyDate': Timestamp.fromDate(selectedDate),
+      'selected': true,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Custom bouquet added to cart.")),
+    );
+    setState(() {
+      _selectedItems.clear();
+      _customMessage = "";
+    });
+  }
 }
 
-// =========================
-// Item model (dummy)
-// =========================
 class _Item {
+  final String id;
   final String name;
   final int price;
-  final String image;
+  final String category;
   int quantity;
 
-  _Item(this.name, this.price, this.image, {this.quantity = 0});
+  _Item(this.id, this.name, this.price, {this.category = "Flowers"})
+      : quantity = 0;
 
-  _Item copy() => _Item(name, price, image);
+  _Item copy() => _Item(id, name, price, category: category);
 }
+

@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:clayamour/pages/checkout_page.dart';
+import 'package:clayamour/services/firebase_service.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -9,90 +11,77 @@ class CartPage extends StatefulWidget {
 }
 
 class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
-  // 🎨 ClayAmour palette
+  // ClayAmour palette
   static const Color primary = Color(0xFFE8A0BF);
   static const Color background = Color(0xFFFAF7F5);
   static const Color surface = Colors.white;
   static const Color textPrimary = Color(0xFF2E2E2E);
   static const Color textSecondary = Color(0xFF6F6F6F);
 
-  late List<CartDateGroup> groups;
-
   @override
-  void initState() {
-    super.initState();
-
-    // Dummy cart grouped by date
-    groups = [
-      CartDateGroup(
-        date: DateTime(2025, 5, 12),
-        items: [
-          CartItem.readyMade(
-            id: "rm_rose_bloom",
-            title: "Ready-made Bouquet",
-            subtitle: "Rose Bloom",
-            price: 89,
-          ),
-          CartItem.custom(
-            id: "cus_1",
-            title: "Custom Bouquet",
-            subtitle: "Personalized Design",
-            basePrice: 0,
-            flowers: {
-              "Rose": CartLineItem(name: "Rose", unitPrice: 8, qty: 10),
-              "Lily": CartLineItem(name: "Lily", unitPrice: 7, qty: 10),
-            },
-            characters: {
-              "Graduate": CartLineItem(name: "Graduate", unitPrice: 25, qty: 1),
-            },
-            theme: "Pastel",
-            message: "Congratulations!",
-          ),
-        ],
+  Widget build(BuildContext context) {
+    final uid = FirebaseService.uid;
+    return Scaffold(
+      backgroundColor: background,
+      appBar: AppBar(
+        backgroundColor: background,
+        elevation: 0,
+        title: const Text(
+          "Your Cart",
+          style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary),
+        ),
       ),
-      CartDateGroup(
-        date: DateTime(2025, 5, 20),
-        items: [
-          CartItem.custom(
-            id: "cus_2",
-            title: "Custom Bouquet",
-            subtitle: "Soft Pink Theme",
-            basePrice: 0,
-            flowers: {
-              "Sunflower": CartLineItem(
-                name: "Sunflower",
-                unitPrice: 6,
-                qty: 12,
-              ),
-            },
-            characters: {},
-            theme: "Soft Pink",
-            message: "For You 💗",
-          ),
-        ],
-      ),
-    ];
+      body: uid == null
+          ? const Center(child: Text("Please sign in to view cart."))
+          : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirebaseService.userSubcollection(uid, 'cart')
+                  .orderBy('readyDate')
+                  .snapshots(),
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final docs = snap.data?.docs ?? [];
+                if (docs.isEmpty) {
+                  return const Center(child: Text("Your cart is empty."));
+                }
+                final groups = _buildGroups(docs);
+                final summary = _TotalSummary.fromGroups(groups);
+                return Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                        itemCount: groups.length,
+                        itemBuilder: (_, i) => _dateGroupCard(groups[i]),
+                      ),
+                    ),
+                    _checkoutBar(summary.count, summary.total),
+                  ],
+                );
+              },
+            ),
+    );
   }
 
-  int get selectedTotal {
-    int total = 0;
-    for (final g in groups) {
-      for (final item in g.items) {
-        if (item.selected) total += item.totalPrice;
-      }
+  List<CartDateGroup> _buildGroups(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    final Map<String, CartDateGroup> grouped = {};
+    for (final doc in docs) {
+      final data = doc.data();
+      final readyDate = (data['readyDate'] as Timestamp?)?.toDate() ??
+          DateTime.now();
+      final key = _dateKey(readyDate);
+      grouped[key] ??= CartDateGroup(date: readyDate, items: []);
+      grouped[key]!.items.add(CartItem.fromFirestore(doc));
     }
-    return total;
+    final groups = grouped.values.toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    return groups;
   }
 
-  int get selectedCount {
-    int c = 0;
-    for (final g in groups) {
-      for (final item in g.items) {
-        if (item.selected) c++;
-      }
-    }
-    return c;
-  }
+  String _dateKey(DateTime d) => "${d.year}-${d.month}-${d.day}";
 
   String formatDate(DateTime d) {
     const months = [
@@ -112,8 +101,8 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     return "${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}";
   }
 
-  Future<void> _pickGroupDate(int groupIndex) async {
-    final current = groups[groupIndex].date;
+  Future<void> _pickGroupDate(CartDateGroup group) async {
+    final current = group.date;
     final picked = await showDatePicker(
       context: context,
       initialDate: current,
@@ -121,127 +110,35 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       lastDate: DateTime(2030, 12, 31),
     );
     if (picked != null) {
-      setState(() => groups[groupIndex].date = picked);
+      for (final item in group.items) {
+        await item.ref.update({
+          'readyDate': Timestamp.fromDate(picked),
+        });
+      }
     }
   }
 
-  void _toggleExpand(int groupIndex) {
-    setState(() => groups[groupIndex].expanded = !groups[groupIndex].expanded);
+  void _toggleExpand(CartDateGroup group) {
+    setState(() => group.expanded = !group.expanded);
   }
 
-  void _deleteItem(int groupIndex, String itemId) {
-    setState(() {
-      groups[groupIndex].items.removeWhere((i) => i.id == itemId);
-      if (groups[groupIndex].items.isEmpty) {
-        groups.removeAt(groupIndex);
-      }
+  Future<void> _deleteItem(CartItem item) async {
+    await item.ref.delete();
+  }
+
+  Future<void> _addBouquetForDate(DateTime date) async {
+    final uid = FirebaseService.uid;
+    if (uid == null) return;
+    final cart = FirebaseService.userSubcollection(uid, 'cart');
+    await cart.add({
+      'type': 'readyMade',
+      'title': 'Ready-made Bouquet',
+      'subtitle': 'Rose Bloom',
+      'price': 89,
+      'readyDate': Timestamp.fromDate(date),
+      'selected': true,
+      'createdAt': FieldValue.serverTimestamp(),
     });
-  }
-
-  void _addBouquetForDate(int groupIndex) {
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (_) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 6),
-                const Text(
-                  "Add bouquet for this date",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _sheetTile(
-                  icon: Icons.local_florist,
-                  title: "Ready-made bouquet",
-                  subtitle: "Add a design bouquet",
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() {
-                      groups[groupIndex].items.add(
-                        CartItem.readyMade(
-                          id: "rm_${DateTime.now().millisecondsSinceEpoch}",
-                          title: "Ready-made Bouquet",
-                          subtitle: "Rose Bloom",
-                          price: 89,
-                        ),
-                      );
-                      groups[groupIndex].expanded = true;
-                    });
-                  },
-                ),
-                _sheetTile(
-                  icon: Icons.auto_awesome,
-                  title: "Custom bouquet",
-                  subtitle: "Build your own bouquet",
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() {
-                      groups[groupIndex].items.add(
-                        CartItem.custom(
-                          id: "cus_${DateTime.now().millisecondsSinceEpoch}",
-                          title: "Custom Bouquet",
-                          subtitle: "New Custom Design",
-                          basePrice: 0,
-                          flowers: {
-                            "Rose": CartLineItem(
-                              name: "Rose",
-                              unitPrice: 8,
-                              qty: 6,
-                            ),
-                          },
-                          characters: {},
-                          theme: "Pastel",
-                          message: "Your message",
-                        ),
-                      );
-                      groups[groupIndex].expanded = true;
-                    });
-                  },
-                ),
-                const SizedBox(height: 6),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _sheetTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      leading: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: primary.withOpacity(0.14),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Icon(icon, color: primary),
-      ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(subtitle, style: const TextStyle(color: textSecondary)),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: onTap,
-    );
   }
 
   Future<void> _editTheme(CartItem item) async {
@@ -270,9 +167,8 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                 final active = item.theme == t;
                 return ListTile(
                   title: Text(t),
-                  trailing: active
-                      ? const Icon(Icons.check, color: primary)
-                      : null,
+                  trailing:
+                      active ? const Icon(Icons.check, color: primary) : null,
                   onTap: () => Navigator.pop(context, t),
                 );
               }),
@@ -282,7 +178,9 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       },
     );
 
-    if (selected != null) setState(() => item.theme = selected);
+    if (selected != null) {
+      await item.ref.update({'theme': selected});
+    }
   }
 
   Future<void> _editMessage(CartItem item) async {
@@ -314,40 +212,12 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       },
     );
 
-    if (newMessage != null) setState(() => item.message = newMessage);
+    if (newMessage != null) {
+      await item.ref.update({'message': newMessage});
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: background,
-      appBar: AppBar(
-        backgroundColor: background,
-        elevation: 0,
-        title: const Text(
-          "Your Cart",
-          style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary),
-        ),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              itemCount: groups.length,
-              itemBuilder: (_, groupIndex) => _dateGroupCard(groupIndex),
-            ),
-          ),
-          _checkoutBar(),
-        ],
-      ),
-    );
-  }
-
-  // ✅ Date Group UI (with animation)
-  Widget _dateGroupCard(int groupIndex) {
-    final g = groups[groupIndex];
-
+  Widget _dateGroupCard(CartDateGroup group) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
@@ -356,14 +226,13 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       ),
       child: Column(
         children: [
-          // Date Header (highlighted + edit + expand)
           InkWell(
             borderRadius: BorderRadius.circular(24),
-            onTap: () => _toggleExpand(groupIndex),
+            onTap: () => _toggleExpand(group),
             child: Container(
               padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
               decoration: BoxDecoration(
-                color: primary.withOpacity(0.10),
+                color: primary.withAlpha((0.10 * 255).round()),
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Row(
@@ -372,7 +241,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      formatDate(g.date),
+                      formatDate(group.date),
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -380,49 +249,39 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
-
-                  // Edit date
                   IconButton(
                     icon: const Icon(Icons.edit_outlined, size: 18),
                     color: textPrimary,
-                    onPressed: () => _pickGroupDate(groupIndex),
+                    onPressed: () => _pickGroupDate(group),
                   ),
-
-                  // Expand indicator (animated)
                   AnimatedRotation(
                     duration: const Duration(milliseconds: 220),
-                    turns: g.expanded ? 0.5 : 0.0,
+                    turns: group.expanded ? 0.5 : 0.0,
                     child: const Icon(Icons.keyboard_arrow_down),
                   ),
                 ],
               ),
             ),
           ),
-
-          // Expand/collapse animation
           AnimatedSize(
             duration: const Duration(milliseconds: 260),
             curve: Curves.easeOutCubic,
-            child: g.expanded
+            child: group.expanded
                 ? Padding(
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                     child: Column(
                       children: [
-                        ...g.items.map(
-                          (item) => _cartItemCard(groupIndex, item),
-                        ),
+                        ...group.items.map(_cartItemCard),
                         const SizedBox(height: 6),
-
-                        // Add another bouquet for this date
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: primary,
-                            side: BorderSide(color: primary.withOpacity(0.55)),
+                            side: BorderSide(color: primary.withAlpha((0.55 * 255).round())),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
-                          onPressed: () => _addBouquetForDate(groupIndex),
+                          onPressed: () => _addBouquetForDate(group.date),
                           icon: const Icon(Icons.add),
                           label: const Text(
                             "Add another bouquet for this date",
@@ -438,15 +297,14 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  // ✅ Individual item card (checkbox + edit qty/theme/message + delete)
-  Widget _cartItemCard(int groupIndex, CartItem item) {
+  Widget _cartItemCard(CartItem item) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
+        border: Border.all(color: Colors.black.withAlpha((0.05 * 255).round())),
       ),
       child: Column(
         children: [
@@ -455,7 +313,8 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
               Checkbox(
                 value: item.selected,
                 activeColor: primary,
-                onChanged: (v) => setState(() => item.selected = v ?? true),
+                onChanged: (v) =>
+                    item.ref.update({'selected': v ?? true}),
               ),
               Expanded(
                 child: Column(
@@ -481,38 +340,31 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline),
-                onPressed: () => _deleteItem(groupIndex, item.id),
+                onPressed: () => _deleteItem(item),
               ),
             ],
           ),
-
           const Divider(height: 18),
-
-          // Content differs by type
           if (item.type == CartItemType.readyMade) ...[
             _pillRow(
               icon: Icons.local_florist,
               label: "1 item",
-              value: "Bouquet × 1",
+              value: "Bouquet A- 1",
             ),
           ] else ...[
-            // Flowers
             if (item.flowers.isNotEmpty) ...[
               _sectionMiniTitle("Flowers"),
               const SizedBox(height: 6),
-              ...item.flowers.values.map((li) => _qtyLine(li)),
+              ...item.flowers.values.map((li) => _qtyLine(item, li, 'flowers')),
               const SizedBox(height: 10),
             ],
-
-            // Characters
             if (item.characters.isNotEmpty) ...[
               _sectionMiniTitle("Characters"),
               const SizedBox(height: 6),
-              ...item.characters.values.map((li) => _qtyLine(li)),
+              ...item.characters.values
+                  .map((li) => _qtyLine(item, li, 'characters')),
               const SizedBox(height: 10),
             ],
-
-            // Theme + Message (editable)
             _editableInfo(
               label: "Theme",
               value: item.theme ?? "-",
@@ -525,10 +377,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
               onTap: () => _editMessage(item),
             ),
           ],
-
           const Divider(height: 18),
-
-          // Price row (animated when selected changes)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -574,22 +423,21 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  // Qty line with + / -
-  Widget _qtyLine(CartLineItem li) {
+  Widget _qtyLine(CartItem item, CartLineItem li, String kind) {
     return Row(
       children: [
         Expanded(
           child: Text(
-            "${li.name} • RM${li.unitPrice} each",
+            "${li.name} - RM${li.unitPrice} each",
             style: const TextStyle(color: textPrimary),
           ),
         ),
         _qtyBtn(
           icon: Icons.remove,
-          onTap: () {
-            setState(() {
-              if (li.qty > 0) li.qty--;
-            });
+          onTap: () async {
+            if (li.qty <= 0) return;
+            li.qty--;
+            await _updateLineItem(item, li, kind);
           },
         ),
         Padding(
@@ -599,14 +447,36 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
             style: const TextStyle(fontWeight: FontWeight.w700),
           ),
         ),
-        _qtyBtn(icon: Icons.add, onTap: () => setState(() => li.qty++)),
+        _qtyBtn(
+          icon: Icons.add,
+          onTap: () async {
+            li.qty++;
+            await _updateLineItem(item, li, kind);
+          },
+        ),
       ],
     );
   }
 
+  Future<void> _updateLineItem(
+    CartItem item,
+    CartLineItem li,
+    String kind,
+  ) async {
+    final map = Map<String, dynamic>.from(
+      kind == 'flowers' ? item.flowers : item.characters,
+    );
+    map[li.name] = {
+      'name': li.name,
+      'unitPrice': li.unitPrice,
+      'qty': li.qty,
+    };
+    await item.ref.update({kind: map});
+  }
+
   Widget _qtyBtn({required IconData icon, required VoidCallback onTap}) {
     return Material(
-      color: primary.withOpacity(0.14),
+      color: primary.withAlpha((0.14 * 255).round()),
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
@@ -678,8 +548,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  // ✅ Checkout bar: shows selected count + selected total
-  Widget _checkoutBar() {
+  Widget _checkoutBar(int selectedCount, int selectedTotal) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: const BoxDecoration(
@@ -757,10 +626,6 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
   }
 }
 
-/* ===========================
-   Models (dummy)
-   =========================== */
-
 class CartDateGroup {
   DateTime date;
   bool expanded;
@@ -776,81 +641,74 @@ class CartDateGroup {
 enum CartItemType { readyMade, custom }
 
 class CartItem {
+  final DocumentReference<Map<String, dynamic>> ref;
   final String id;
   final CartItemType type;
-
   final String title;
   final String subtitle;
-
-  bool selected;
-
-  // Ready-made
-  int? price;
-
-  // Custom
-  int basePrice;
-  Map<String, CartLineItem> flowers;
-  Map<String, CartLineItem> characters;
-
-  String? theme;
-  String? message;
+  final bool selected;
+  final int? price;
+  final int basePrice;
+  final Map<String, CartLineItem> flowers;
+  final Map<String, CartLineItem> characters;
+  final String? theme;
+  final String? message;
 
   CartItem._({
+    required this.ref,
     required this.id,
     required this.type,
     required this.title,
     required this.subtitle,
     required this.selected,
-    this.price,
+    required this.price,
     required this.basePrice,
     required this.flowers,
     required this.characters,
-    this.theme,
-    this.message,
+    required this.theme,
+    required this.message,
   });
 
-  factory CartItem.readyMade({
-    required String id,
-    required String title,
-    required String subtitle,
-    required int price,
-  }) {
+  factory CartItem.fromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    final type = data['type'] == 'custom'
+        ? CartItemType.custom
+        : CartItemType.readyMade;
+
+    final flowers = _lineItemsFromMap(data['flowers']);
+    final characters = _lineItemsFromMap(data['characters']);
+
     return CartItem._(
-      id: id,
-      type: CartItemType.readyMade,
-      title: title,
-      subtitle: subtitle,
-      selected: true,
-      price: price,
-      basePrice: 0,
-      flowers: {},
-      characters: {},
+      ref: doc.reference,
+      id: doc.id,
+      type: type,
+      title: data['title']?.toString() ?? 'Bouquet',
+      subtitle: data['subtitle']?.toString() ?? '',
+      selected: data['selected'] == true,
+      price: (data['price'] as num?)?.toInt(),
+      basePrice: (data['basePrice'] as num?)?.toInt() ?? 0,
+      flowers: flowers,
+      characters: characters,
+      theme: data['theme']?.toString(),
+      message: data['message']?.toString(),
     );
   }
 
-  factory CartItem.custom({
-    required String id,
-    required String title,
-    required String subtitle,
-    required int basePrice,
-    required Map<String, CartLineItem> flowers,
-    required Map<String, CartLineItem> characters,
-    required String theme,
-    required String message,
-  }) {
-    return CartItem._(
-      id: id,
-      type: CartItemType.custom,
-      title: title,
-      subtitle: subtitle,
-      selected: true,
-      price: null,
-      basePrice: basePrice,
-      flowers: flowers,
-      characters: characters,
-      theme: theme,
-      message: message,
-    );
+  static Map<String, CartLineItem> _lineItemsFromMap(dynamic raw) {
+    if (raw is! Map<String, dynamic>) return {};
+    return raw.map((key, value) {
+      final v = value as Map<String, dynamic>;
+      return MapEntry(
+        key,
+        CartLineItem(
+          name: v['name']?.toString() ?? key,
+          unitPrice: (v['unitPrice'] as num?)?.toInt() ?? 0,
+          qty: (v['qty'] as num?)?.toInt() ?? 0,
+        ),
+      );
+    });
   }
 
   int get totalPrice {
@@ -877,3 +735,25 @@ class CartLineItem {
     required this.qty,
   });
 }
+
+class _TotalSummary {
+  final int total;
+  final int count;
+
+  _TotalSummary(this.total, this.count);
+
+  factory _TotalSummary.fromGroups(List<CartDateGroup> groups) {
+    int total = 0;
+    int count = 0;
+    for (final g in groups) {
+      for (final item in g.items) {
+        if (item.selected) {
+          total += item.totalPrice;
+          count++;
+        }
+      }
+    }
+    return _TotalSummary(total, count);
+  }
+}
+

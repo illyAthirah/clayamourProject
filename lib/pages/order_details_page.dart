@@ -1,9 +1,17 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class OrderDetailsPage extends StatelessWidget {
-  const OrderDetailsPage({super.key});
+  final String orderId;
+  final Map<String, dynamic> data;
 
-  // 🎨 ClayAmour palette
+  const OrderDetailsPage({
+    super.key,
+    required this.orderId,
+    required this.data,
+  });
+
+  // ClayAmour palette
   static const Color primary = Color(0xFFE8A0BF);
   static const Color background = Color(0xFFFAF7F5);
   static const Color surface = Colors.white;
@@ -12,6 +20,12 @@ class OrderDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final status = data['status']?.toString() ?? 'Placed';
+    final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+    final total = data['total'] ?? 0;
+    final items = (data['items'] as List<dynamic>? ?? [])
+        .map((e) => e as Map<String, dynamic>)
+        .toList();
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
@@ -32,23 +46,22 @@ class OrderDetailsPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _orderHeader(),
+            _orderHeader(status, createdAt),
             const SizedBox(height: 28),
-            _orderTimeline(),
+            _orderTimeline(status),
             const SizedBox(height: 32),
             _sectionTitle("Bouquet Details"),
             const SizedBox(height: 12),
-            _detailsCard(),
+            _detailsCard(items),
             const SizedBox(height: 32),
-            _paymentSummary(),
+            _paymentSummary(total),
           ],
         ),
       ),
     );
   }
 
-  // 🧾 Strong order header
-  Widget _orderHeader() {
+  Widget _orderHeader(String status, DateTime? createdAt) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -56,7 +69,7 @@ class OrderDetailsPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha((0.05 * 255).round()),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -67,32 +80,32 @@ class OrderDetailsPage extends StatelessWidget {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
+            children: [
               Text(
-                "Order CA-10212",
-                style: TextStyle(
+                "Order $orderId",
+                style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
                   color: textPrimary,
                 ),
               ),
-              _StatusBadge(),
+              _StatusBadge(status: status),
             ],
           ),
           const SizedBox(height: 10),
-          const Row(
+          Row(
             children: [
-              Icon(Icons.calendar_month, size: 16, color: textSecondary),
-              SizedBox(width: 6),
+              const Icon(Icons.calendar_month, size: 16, color: textSecondary),
+              const SizedBox(width: 6),
               Text(
-                "Ready by 20 May 2025",
-                style: TextStyle(color: textSecondary),
+                createdAt == null ? "-" : "Placed ${_formatDate(createdAt)}",
+                style: const TextStyle(color: textSecondary),
               ),
             ],
           ),
           const SizedBox(height: 10),
           const Text(
-            "Handcrafted with care • 3–4 weeks process",
+            "Handcrafted with care - 3-4 weeks process",
             style: TextStyle(fontSize: 13, color: textSecondary),
           ),
         ],
@@ -100,39 +113,27 @@ class OrderDetailsPage extends StatelessWidget {
     );
   }
 
-  // 🕒 Order timeline
-  Widget _orderTimeline() {
+  Widget _orderTimeline(String status) {
+    final steps = [
+      "Order Placed",
+      "Designing",
+      "Handcrafting",
+      "Ready for Collection",
+    ];
+    final activeIndex = _statusIndex(status);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionTitle("Order Progress"),
         const SizedBox(height: 14),
-
-        _timelineItem(
-          title: "Order Placed",
-          subtitle: "We have received your order",
-          isCompleted: true,
-          isActive: false,
-        ),
-        _timelineItem(
-          title: "Designing",
-          subtitle: "Bouquet design in progress",
-          isCompleted: true,
-          isActive: false,
-        ),
-        _timelineItem(
-          title: "Handcrafting",
-          subtitle: "Clay flowers are being crafted",
-          isCompleted: false,
-          isActive: true,
-        ),
-        _timelineItem(
-          title: "Ready for Collection",
-          subtitle: "Your bouquet is ready",
-          isCompleted: false,
-          isActive: false,
-          isLast: true,
-        ),
+        for (int i = 0; i < steps.length; i++)
+          _timelineItem(
+            title: steps[i],
+            subtitle: _statusSubtitle(steps[i]),
+            isCompleted: i < activeIndex,
+            isActive: i == activeIndex,
+            isLast: i == steps.length - 1,
+          ),
       ],
     );
   }
@@ -194,8 +195,7 @@ class OrderDetailsPage extends StatelessWidget {
     );
   }
 
-  // 🌸 Bouquet details
-  Widget _detailsCard() {
+  Widget _detailsCard(List<Map<String, dynamic>> items) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -204,32 +204,48 @@ class OrderDetailsPage extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
-            "Custom Bouquet",
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: textPrimary,
-            ),
-          ),
-          SizedBox(height: 12),
-          Text("• Rose × 10"),
-          Text("• Lily × 10"),
-          Text("• Graduate Character × 1"),
-          SizedBox(height: 14),
-          Text("Theme: Pastel", style: TextStyle(color: textSecondary)),
-          SizedBox(height: 6),
-          Text(
-            "Message: Congratulations!",
-            style: TextStyle(color: textSecondary),
-          ),
+        children: [
+          ...items.map((item) {
+            final title = item['title']?.toString() ?? 'Bouquet';
+            final subtitle = item['subtitle']?.toString() ?? '';
+            final theme = item['theme']?.toString();
+            final message = item['message']?.toString();
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
+                  ),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(subtitle),
+                  ],
+                  if (theme != null) ...[
+                    const SizedBox(height: 6),
+                    Text("Theme: $theme",
+                        style: const TextStyle(color: textSecondary)),
+                  ],
+                  if (message != null && message.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text("Message: $message",
+                        style: const TextStyle(color: textSecondary)),
+                  ],
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
   }
 
-  // 💰 Payment summary
-  Widget _paymentSummary() {
+  Widget _paymentSummary(Object total) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -238,8 +254,8 @@ class OrderDetailsPage extends StatelessWidget {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
-          Text(
+        children: [
+          const Text(
             "Total Paid",
             style: TextStyle(
               fontWeight: FontWeight.w600,
@@ -247,8 +263,8 @@ class OrderDetailsPage extends StatelessWidget {
             ),
           ),
           Text(
-            "RM235",
-            style: TextStyle(
+            "RM$total",
+            style: const TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 18,
               color: primary,
@@ -269,28 +285,90 @@ class OrderDetailsPage extends StatelessWidget {
       ),
     );
   }
+
+  int _statusIndex(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return 3;
+      case 'in progress':
+        return 2;
+      case 'processing':
+        return 1;
+      default:
+        return 0;
+    }
+  }
+
+  String _statusSubtitle(String step) {
+    switch (step) {
+      case 'Order Placed':
+        return "We have received your order";
+      case 'Designing':
+        return "Bouquet design in progress";
+      case 'Handcrafting':
+        return "Clay flowers are being crafted";
+      case 'Ready for Collection':
+        return "Your bouquet is ready";
+      default:
+        return "";
+    }
+  }
+
+  String _formatDate(DateTime d) {
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    return "${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}";
+  }
 }
 
-// 🟣 Status badge widget
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge();
+  final String status;
+
+  const _StatusBadge({required this.status});
 
   @override
   Widget build(BuildContext context) {
+    final color = _statusColor(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.15),
+        color: color.withAlpha((0.15 * 255).round()),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Text(
-        "In Progress",
+      child: Text(
+        status,
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: Colors.orange,
+          color: color,
         ),
       ),
     );
   }
+
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return Colors.green;
+      case 'processing':
+        return Colors.blue;
+      case 'in progress':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
 }
+

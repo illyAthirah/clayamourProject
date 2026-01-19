@@ -1,4 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:clayamour/services/firebase_service.dart';
 
 class AddAddressPage extends StatefulWidget {
   const AddAddressPage({super.key});
@@ -8,7 +10,7 @@ class AddAddressPage extends StatefulWidget {
 }
 
 class _AddAddressPageState extends State<AddAddressPage> {
-  // 🎨 ClayAmour palette
+  // ClayAmour palette
   static const Color primary = Color(0xFFE8A0BF);
   static const Color background = Color(0xFFFAF7F5);
   static const Color surface = Colors.white;
@@ -16,10 +18,9 @@ class _AddAddressPageState extends State<AddAddressPage> {
   static const Color textSecondary = Color(0xFF6F6F6F);
 
   String _label = "Home";
-
-  // Dummy pinned location state
   bool _hasPinned = false;
   String _pinnedText = "Pin location to auto-fill address";
+  bool _saving = false;
 
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
@@ -58,16 +59,13 @@ class _AddAddressPageState extends State<AddAddressPage> {
             _sectionTitle("Address Label"),
             _labelChips(),
             const SizedBox(height: 22),
-
             _sectionTitle("Recipient Details"),
             _inputField(label: "Full Name", controller: _nameCtrl),
             _inputField(label: "Phone Number", controller: _phoneCtrl),
             const SizedBox(height: 10),
-
             _sectionTitle("Pin Location"),
             _pinLocationBox(
               onTap: () {
-                // ✅ UI-only dummy
                 setState(() {
                   _hasPinned = true;
                   _pinnedText = "Pinned: UTHM, Batu Pahat (dummy)";
@@ -77,14 +75,11 @@ class _AddAddressPageState extends State<AddAddressPage> {
               },
             ),
             const SizedBox(height: 22),
-
             _sectionTitle("Full Address"),
             _multilineField(label: "Address", controller: _addressCtrl),
           ],
         ),
       ),
-
-      // Save button
       bottomSheet: Container(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         color: background,
@@ -98,13 +93,10 @@ class _AddAddressPageState extends State<AddAddressPage> {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            onPressed: () {
-              // later → save to backend
-              Navigator.pop(context);
-            },
-            child: const Text(
-              "Save Address",
-              style: TextStyle(fontSize: 15),
+            onPressed: _saving ? null : _saveAddress,
+            child: Text(
+              _saving ? "Saving..." : "Save Address",
+              style: const TextStyle(fontSize: 15),
             ),
           ),
         ),
@@ -128,7 +120,6 @@ class _AddAddressPageState extends State<AddAddressPage> {
 
   Widget _labelChips() {
     final labels = ["Home", "Work", "Other"];
-
     return Wrap(
       spacing: 10,
       runSpacing: 10,
@@ -137,7 +128,7 @@ class _AddAddressPageState extends State<AddAddressPage> {
         return ChoiceChip(
           label: Text(l),
           selected: selected,
-          selectedColor: primary.withOpacity(0.18),
+          selectedColor: primary.withAlpha((0.18 * 255).round()),
           labelStyle: TextStyle(
             color: selected ? primary : textPrimary,
             fontWeight: FontWeight.w500,
@@ -200,7 +191,6 @@ class _AddAddressPageState extends State<AddAddressPage> {
     );
   }
 
-  // 📍 Pin location box (dummy UI)
   Widget _pinLocationBox({required VoidCallback onTap}) {
     return InkWell(
       borderRadius: BorderRadius.circular(18),
@@ -211,7 +201,7 @@ class _AddAddressPageState extends State<AddAddressPage> {
           color: surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: _hasPinned ? primary.withOpacity(0.45) : Colors.grey.shade200,
+            color: _hasPinned ? primary.withAlpha((0.45 * 255).round()) : Colors.grey.shade200,
             width: 1.2,
           ),
         ),
@@ -220,7 +210,7 @@ class _AddAddressPageState extends State<AddAddressPage> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: primary.withOpacity(0.15),
+                color: primary.withAlpha((0.15 * 255).round()),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: const Icon(Icons.location_on_outlined, color: primary),
@@ -256,4 +246,33 @@ class _AddAddressPageState extends State<AddAddressPage> {
       ),
     );
   }
+
+  Future<void> _saveAddress() async {
+    final uid = FirebaseService.uid;
+    if (uid == null) return;
+    if (_nameCtrl.text.trim().isEmpty ||
+        _phoneCtrl.text.trim().isEmpty ||
+        _addressCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill in all fields.")),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await FirebaseService.userSubcollection(uid, 'addresses').add({
+        'label': _label,
+        'name': _nameCtrl.text.trim(),
+        'phone': _phoneCtrl.text.trim(),
+        'address': _addressCtrl.text.trim(),
+        'isDefault': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (!mounted) return;
+      Navigator.pop(context);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 }
+

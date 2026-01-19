@@ -215,8 +215,8 @@ class _OnboardPageState extends State<_OnboardPage>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      _LandingPageState.primary.withOpacity(0.35),
-                      _LandingPageState.primary.withOpacity(0.08),
+                      _LandingPageState.primary.withAlpha((0.35 * 255).round()),
+                      _LandingPageState.primary.withAlpha((0.08 * 255).round()),
                     ],
                   ),
                 ),
@@ -260,3 +260,4 @@ class _OnboardPageState extends State<_OnboardPage>
     );
   }
 }
+

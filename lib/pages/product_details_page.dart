@@ -1,9 +1,20 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:clayamour/services/firebase_service.dart';
 import 'package:flutter/material.dart';
 
-class ProductDetailsPage extends StatelessWidget {
-  const ProductDetailsPage({super.key});
+class ProductDetailsPage extends StatefulWidget {
+  final Map<String, dynamic> product;
 
-  // 🎨 ClayAmour palette
+  const ProductDetailsPage({super.key, required this.product});
+
+  @override
+  State<ProductDetailsPage> createState() => _ProductDetailsPageState();
+}
+
+class _ProductDetailsPageState extends State<ProductDetailsPage> {
+  DateTime? _readyDate;
+
+  // ClayAmour palette
   static const Color primary = Color(0xFFE8A0BF);
   static const Color background = Color(0xFFFAF7F5);
   static const Color surface = Colors.white;
@@ -13,6 +24,10 @@ class ProductDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final product = widget.product;
+    final name = product['name']?.toString() ?? 'Product';
+    final price = product['price'] ?? 0;
+
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
@@ -31,18 +46,17 @@ class ProductDetailsPage extends StatelessWidget {
           children: [
             _productImage(),
             const SizedBox(height: 24),
-            _productInfo(),
+            _productInfo(name, price),
             const SizedBox(height: 28),
             _calendarSection(),
             const SizedBox(height: 36),
-            _actionButtons(context),
+            _actionButtons(context, name, price),
           ],
         ),
       ),
     );
   }
 
-  // 🖼 Product image
   Widget _productImage() {
     return Container(
       height: 260,
@@ -56,35 +70,34 @@ class ProductDetailsPage extends StatelessWidget {
     );
   }
 
-  // 🏷 Product info
-  Widget _productInfo() {
+  Widget _productInfo(String name, Object price) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
+      children: [
         Text(
-          "Rose Bloom",
-          style: TextStyle(
+          name,
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w700,
             color: textPrimary,
           ),
         ),
-        SizedBox(height: 6),
+        const SizedBox(height: 6),
         Text(
-          "From RM89",
-          style: TextStyle(
+          "From RM$price",
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
             color: primary,
           ),
         ),
-        SizedBox(height: 12),
-        Row(
+        const SizedBox(height: 12),
+        const Row(
           children: [
             Icon(Icons.schedule, size: 18, color: textSecondary),
             SizedBox(width: 6),
             Text(
-              "Made to order • 3–4 weeks preparation",
+              "Made to order - 3-4 weeks preparation",
               style: TextStyle(fontSize: 13, color: textSecondary),
             ),
           ],
@@ -93,8 +106,6 @@ class ProductDetailsPage extends StatelessWidget {
     );
   }
 
-
-  // 📅 Calendar section (IMPORTANT)
   Widget _calendarSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -108,43 +119,47 @@ class ProductDetailsPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: surface,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            children: const [
-              Icon(Icons.calendar_month, color: primary),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  "Select an available date (3–4 weeks preparation)",
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: textSecondary,
+        InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: _pickDate,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: surface,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_month, color: primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _readyDate == null
+                        ? "Select an available date (3-4 weeks preparation)"
+                        : _formatDate(_readyDate!),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: textSecondary,
+                    ),
                   ),
                 ),
-              ),
-              Icon(Icons.arrow_forward_ios, size: 14),
-            ],
+                const Icon(Icons.arrow_forward_ios, size: 14),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  // 🔘 Action buttons
-  Widget _actionButtons(BuildContext context) {
+  Widget _actionButtons(BuildContext context, String name, Object price) {
     return Column(
       children: [
         _primaryButton(
           text: "Add to Cart",
-          onTap: () {},
+          onTap: () => _addToCart(name, price),
         ),
         const SizedBox(height: 12),
-
       ],
     );
   }
@@ -173,5 +188,57 @@ class ProductDetailsPage extends StatelessWidget {
     );
   }
 
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _readyDate ?? now.add(const Duration(days: 21)),
+      firstDate: now.add(const Duration(days: 21)),
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() => _readyDate = picked);
+    }
+  }
 
+  String _formatDate(DateTime d) {
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    return "${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}";
+  }
+
+  Future<void> _addToCart(String name, Object price) async {
+    final uid = FirebaseService.uid;
+    if (uid == null) return;
+
+    final selectedDate = _readyDate ?? DateTime.now().add(
+      const Duration(days: 21),
+    );
+    final cart = FirebaseService.userSubcollection(uid, 'cart');
+    await cart.add({
+      'type': 'readyMade',
+      'title': 'Ready-made Bouquet',
+      'subtitle': name,
+      'price': price,
+      'readyDate': Timestamp.fromDate(selectedDate),
+      'selected': true,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Added to cart.")),
+    );
+  }
 }

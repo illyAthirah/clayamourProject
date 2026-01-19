@@ -1,14 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:clayamour/logic/favourite_product.dart';
+import 'package:clayamour/pages/product_details_page.dart';
+import 'package:clayamour/services/firebase_service.dart';
 
-class FavouritePage extends StatefulWidget {
+class FavouritePage extends StatelessWidget {
   const FavouritePage({super.key});
 
-  @override
-  State<FavouritePage> createState() => _FavouritePageState();
-}
-
-class _FavouritePageState extends State<FavouritePage> {
   static const Color primary = Color(0xFFE8A0BF);
   static const Color background = Color(0xFFFAF7F5);
   static const Color textPrimary = Color(0xFF2E2E2E);
@@ -16,8 +13,7 @@ class _FavouritePageState extends State<FavouritePage> {
 
   @override
   Widget build(BuildContext context) {
-    final favourites = FavouriteProductStore.favourites;
-
+    final uid = FirebaseService.uid;
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
@@ -31,25 +27,43 @@ class _FavouritePageState extends State<FavouritePage> {
           ),
         ),
       ),
-      body: favourites.isEmpty
-          ? const Center(
-              child: Text(
-                "No favourites yet",
-                style: TextStyle(color: textSecondary),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: favourites.length,
-              itemBuilder: (_, index) {
-                final item = favourites[index];
-                return _favCard(item);
+      body: uid == null
+          ? const Center(child: Text("Please sign in to view favourites."))
+          : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream:
+                  FirebaseService.userSubcollection(uid, 'favorites').snapshots(),
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final items = snap.data?.docs ?? [];
+                if (items.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      "No favourites yet",
+                      style: TextStyle(color: textSecondary),
+                    ),
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: items.length,
+                  itemBuilder: (_, index) {
+                    final doc = items[index];
+                    final data = doc.data();
+                    final product = {
+                      'id': doc.id,
+                      ...data,
+                    };
+                    return _favCard(context, product);
+                  },
+                );
               },
             ),
     );
   }
 
-  Widget _favCard(FavouriteProduct item) {
+  Widget _favCard(BuildContext context, Map<String, dynamic> product) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -63,44 +77,59 @@ class _FavouritePageState extends State<FavouritePage> {
             height: 50,
             width: 50,
             decoration: BoxDecoration(
-              color: primary.withOpacity(0.15),
+              color: primary.withAlpha((0.15 * 255).round()),
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(Icons.local_florist, color: primary),
           ),
           const SizedBox(width: 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: textPrimary,
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProductDetailsPage(product: product),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "From RM${item.price}",
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: textSecondary,
+                );
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product['name']?.toString() ?? 'Product',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    "From RM${product['price'] ?? 0}",
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: textSecondary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           IconButton(
             icon: const Icon(Icons.favorite, color: Colors.red),
-            onPressed: () {
-              setState(() {
-                FavouriteProductStore.toggleFavourite(item);
-              });
-            },
+            onPressed: () => _removeFavourite(product),
           ),
         ],
       ),
     );
   }
+
+  Future<void> _removeFavourite(Map<String, dynamic> product) async {
+    final uid = FirebaseService.uid;
+    if (uid == null) return;
+    await FirebaseService.userSubcollection(uid, 'favorites')
+        .doc(product['id'].toString())
+        .delete();
+  }
 }
+

@@ -1,9 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:clayamour/pages/product_details_page.dart';
 import 'package:clayamour/pages/customize_bouquet_page.dart';
 import 'package:clayamour/pages/catalog_page.dart';
 import 'package:clayamour/pages/cart_page.dart';
-import 'package:clayamour/logic/favourite_product.dart';
+import 'package:clayamour/services/firebase_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -14,7 +15,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
-  // 🎨 ClayAmour palette
+  // ClayAmour palette
   static const Color primary = Color(0xFFE8A0BF);
   static const Color background = Color(0xFFFAF7F5);
   static const Color accent = Color(0xFFC97C5D);
@@ -50,6 +51,7 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseService.uid;
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
@@ -72,65 +74,66 @@ class _HomePageState extends State<HomePage>
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            FadeTransition(
-              opacity: _fade,
-              child: SlideTransition(position: _slideUp, child: _heroSection()),
-            ),
-
-            const SizedBox(height: 26),
-
-            FadeTransition(
-              opacity: _fade,
-              child: SlideTransition(position: _slideUp, child: _primaryCTA()),
-            ),
-
-            const SizedBox(height: 36),
-
-            // 🔹 Browse section
-            _sectionHeader(
-              title: "Browse our designs",
-              action: "View all",
-              onActionTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CatalogPage()),
+      body: uid == null
+          ? const Center(child: Text("Please sign in to continue."))
+          : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream:
+                  FirebaseService.userSubcollection(uid, 'favorites').snapshots(),
+              builder: (context, favSnap) {
+                final favIds = favSnap.data?.docs
+                        .map((d) => d.id)
+                        .toSet() ??
+                    <String>{};
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FadeTransition(
+                        opacity: _fade,
+                        child:
+                            SlideTransition(position: _slideUp, child: _heroSection()),
+                      ),
+                      const SizedBox(height: 26),
+                      FadeTransition(
+                        opacity: _fade,
+                        child: SlideTransition(position: _slideUp, child: _primaryCTA()),
+                      ),
+                      const SizedBox(height: 36),
+                      _sectionHeader(
+                        title: "Browse our designs",
+                        action: "View all",
+                        onActionTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const CatalogPage()),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      _categories(),
+                      const SizedBox(height: 28),
+                      const Text(
+                        "Featured Bouquets",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      FadeTransition(
+                        opacity: _fade,
+                        child: _featuredGrid(favIds),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
-
-            const SizedBox(height: 14),
-
-            _categories(),
-
-            const SizedBox(height: 28),
-
-            // 🔹 Featured section
-            const Text(
-              "Featured Bouquets",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: textPrimary,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            FadeTransition(opacity: _fade, child: _featuredGrid()),
-          ],
-        ),
-      ),
     );
   }
 
-  // ===========================
-  // Hero
-  // ===========================
   Widget _heroSection() {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,9 +156,6 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ===========================
-  // CTA
-  // ===========================
   Widget _primaryCTA() {
     return InkWell(
       borderRadius: BorderRadius.circular(24),
@@ -206,9 +206,6 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ===========================
-  // Section Header
-  // ===========================
   Widget _sectionHeader({
     required String title,
     required String action,
@@ -225,14 +222,11 @@ class _HomePageState extends State<HomePage>
             color: textPrimary,
           ),
         ),
-        TextButton(onPressed: onActionTap, child: const Text("View all")),
+        TextButton(onPressed: onActionTap, child: Text(action)),
       ],
     );
   }
 
-  // ===========================
-  // Categories
-  // ===========================
   Widget _categories() {
     return Row(
       children: [
@@ -281,33 +275,57 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ===========================
-  // Featured Products
-  // ===========================
-  Widget _featuredGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: 4,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.78,
-      ),
-      itemBuilder: (_, __) => _productCard(),
+  Widget _featuredGrid(Set<String> favIds) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseService.products().snapshots(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final products = snap.data?.docs.map((d) {
+              final data = d.data();
+              return {'id': d.id, ...data};
+            }).toList() ??
+            <Map<String, dynamic>>[];
+
+        final featured = products.where((p) => p['featured'] == true).toList();
+        final visible = featured.isNotEmpty ? featured : products.take(4).toList();
+
+        if (visible.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text("No featured products yet."),
+          );
+        }
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: visible.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 0.78,
+          ),
+          itemBuilder: (_, i) => _productCard(
+            visible[i],
+            favIds.contains(visible[i]['id']),
+          ),
+        );
+      },
     );
   }
 
-  Widget _productCard() {
-    const productId = "rose_bloom";
-
+  Widget _productCard(Map<String, dynamic> product, bool isFav) {
     return InkWell(
       borderRadius: BorderRadius.circular(22),
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const ProductDetailsPage()),
+          MaterialPageRoute(
+            builder: (_) => ProductDetailsPage(product: product),
+          ),
         );
       },
       child: Container(
@@ -316,7 +334,7 @@ class _HomePageState extends State<HomePage>
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withAlpha((0.08 * 255).round()),
               blurRadius: 14,
               offset: const Offset(0, 8),
             ),
@@ -343,23 +361,11 @@ class _HomePageState extends State<HomePage>
                     top: 10,
                     right: 10,
                     child: InkWell(
-                      onTap: () {
-                        setState(() {
-                          FavouriteProductStore.toggleFavourite(
-                            FavouriteProduct(
-                              id: productId,
-                              name: "Rose Bloom",
-                              price: 89,
-                            ),
-                          );
-                        });
-                      },
+                      onTap: () => _toggleFavorite(product, isFav),
                       child: CircleAvatar(
                         backgroundColor: Colors.white,
                         child: Icon(
-                          FavouriteProductStore.isFavourite(productId)
-                              ? Icons.favorite
-                              : Icons.favorite_border,
+                          isFav ? Icons.favorite : Icons.favorite_border,
                           size: 18,
                           color: Colors.redAccent,
                         ),
@@ -369,22 +375,25 @@ class _HomePageState extends State<HomePage>
                 ],
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.all(12),
+            Padding(
+              padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Rose Bloom",
-                    style: TextStyle(
+                    product['name'].toString(),
+                    style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       color: textPrimary,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
-                    "From RM89",
-                    style: TextStyle(fontSize: 13, color: textSecondary),
+                    "From RM${product['price']}",
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -394,4 +403,25 @@ class _HomePageState extends State<HomePage>
       ),
     );
   }
+
+  Future<void> _toggleFavorite(
+    Map<String, dynamic> product,
+    bool isFav,
+  ) async {
+    final uid = FirebaseService.uid;
+    if (uid == null) return;
+    final ref = FirebaseService.userSubcollection(uid, 'favorites')
+        .doc(product['id'].toString());
+    if (isFav) {
+      await ref.delete();
+    } else {
+      await ref.set({
+        'name': product['name'],
+        'price': product['price'],
+        'category': product['category'],
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+  }
 }
+

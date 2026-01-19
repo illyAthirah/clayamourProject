@@ -1,41 +1,22 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:clayamour/pages/add_address_page.dart';
 import 'package:clayamour/pages/edit_address_page.dart';
+import 'package:clayamour/services/firebase_service.dart';
 
-class DeliveryAddressesPage extends StatefulWidget {
+class DeliveryAddressesPage extends StatelessWidget {
   const DeliveryAddressesPage({super.key});
 
-  @override
-  State<DeliveryAddressesPage> createState() => _DeliveryAddressesPageState();
-}
-
-class _DeliveryAddressesPageState extends State<DeliveryAddressesPage> {
-  // 🎨 ClayAmour palette
+  // ClayAmour palette
   static const Color primary = Color(0xFFE8A0BF);
   static const Color background = Color(0xFFFAF7F5);
   static const Color surface = Colors.white;
   static const Color textPrimary = Color(0xFF2E2E2E);
   static const Color textSecondary = Color(0xFF6F6F6F);
 
-  int _selectedIndex = 0;
-
-  final List<_Address> _addresses = [
-    _Address(
-      label: "Home",
-      name: "Dinie Athirah",
-      phone: "012-3456789",
-      address: "UTHM,\n83000 Batu Pahat, Johor",
-    ),
-    _Address(
-      label: "Work",
-      name: "Nurul Najma",
-      phone: "012-3456789",
-      address: "Bumbung Biru,\n83000 Batu Pahat, Johor",
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseService.uid;
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
@@ -51,65 +32,79 @@ class _DeliveryAddressesPageState extends State<DeliveryAddressesPage> {
           style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary),
         ),
       ),
-      body: Column(
-        children: [
-          _pinLocationSection(),
-
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: _addresses.length,
-              itemBuilder: (context, index) {
-                final address = _addresses[index];
-                final bool selected = index == _selectedIndex;
-
-                return _addressCard(
-                  address: address,
-                  selected: selected,
-                  onSelect: () {
-                    setState(() => _selectedIndex = index);
-                  },
-                  onEdit: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const EditAddressPage(),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-
-          // ➕ Add new address
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: primary,
-                side: const BorderSide(color: primary),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+      body: uid == null
+          ? const Center(child: Text("Please sign in to manage addresses."))
+          : Column(
+              children: [
+                _pinLocationSection(),
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: FirebaseService.userSubcollection(uid, 'addresses')
+                        .orderBy('updatedAt', descending: true)
+                        .snapshots(),
+                    builder: (context, snap) {
+                      if (snap.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+                      final docs = snap.data?.docs ?? [];
+                      if (docs.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            "No addresses yet.",
+                            style: TextStyle(color: textSecondary),
+                          ),
+                        );
+                      }
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(20),
+                        itemCount: docs.length,
+                        itemBuilder: (context, index) {
+                          final doc = docs[index];
+                          final data = doc.data();
+                          final selected = data['isDefault'] == true;
+                          return _addressCard(
+                            context: context,
+                            id: doc.id,
+                            label: data['label']?.toString() ?? 'Address',
+                            name: data['name']?.toString() ?? '',
+                            phone: data['phone']?.toString() ?? '',
+                            address: data['address']?.toString() ?? '',
+                            selected: selected,
+                            onSelect: () => _setDefault(uid, doc.id, docs),
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
-                minimumSize: const Size.fromHeight(48),
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddAddressPage()),
-                );
-              },
-              icon: const Icon(Icons.add_location_alt_outlined),
-              label: const Text("Add New Address"),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primary,
+                      side: const BorderSide(color: primary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AddAddressPage()),
+                      );
+                    },
+                    icon: const Icon(Icons.add_location_alt_outlined),
+                    label: const Text("Add New Address"),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
-  // 📍 Dummy pin location section
   Widget _pinLocationSection() {
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 12, 20, 8),
@@ -117,14 +112,14 @@ class _DeliveryAddressesPageState extends State<DeliveryAddressesPage> {
       decoration: BoxDecoration(
         color: surface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: primary.withOpacity(0.3)),
+        border: Border.all(color: primary.withAlpha((0.3 * 255).round())),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: primary.withOpacity(0.15),
+              color: primary.withAlpha((0.15 * 255).round()),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.my_location, color: primary),
@@ -155,12 +150,15 @@ class _DeliveryAddressesPageState extends State<DeliveryAddressesPage> {
     );
   }
 
-  // 🏠 Address card
   Widget _addressCard({
-    required _Address address,
+    required BuildContext context,
+    required String id,
+    required String label,
+    required String name,
+    required String phone,
+    required String address,
     required bool selected,
     required VoidCallback onSelect,
-    required VoidCallback onEdit,
   }) {
     return GestureDetector(
       onTap: onSelect,
@@ -178,7 +176,6 @@ class _DeliveryAddressesPageState extends State<DeliveryAddressesPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Radio indicator
             Container(
               margin: const EdgeInsets.only(top: 4),
               width: 18,
@@ -202,39 +199,42 @@ class _DeliveryAddressesPageState extends State<DeliveryAddressesPage> {
                     )
                   : null,
             ),
-
             const SizedBox(width: 14),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Label + Edit
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        address.label,
+                        label,
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           color: textPrimary,
                         ),
                       ),
                       TextButton(
-                        onPressed: onEdit,
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EditAddressPage(
+                                addressId: id,
+                              ),
+                            ),
+                          );
+                        },
                         child: const Text("Edit"),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text(address.name,
-                      style: const TextStyle(color: textPrimary)),
+                  Text(name, style: const TextStyle(color: textPrimary)),
                   const SizedBox(height: 2),
-                  Text(address.phone,
-                      style: const TextStyle(color: textSecondary)),
+                  Text(phone, style: const TextStyle(color: textSecondary)),
                   const SizedBox(height: 6),
-                  Text(address.address,
-                      style: const TextStyle(color: textSecondary)),
+                  Text(address, style: const TextStyle(color: textSecondary)),
                 ],
               ),
             ),
@@ -243,19 +243,15 @@ class _DeliveryAddressesPageState extends State<DeliveryAddressesPage> {
       ),
     );
   }
+
+  Future<void> _setDefault(
+    String uid,
+    String selectedId,
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) async {
+    for (final doc in docs) {
+      await doc.reference.update({'isDefault': doc.id == selectedId});
+    }
+  }
 }
 
-// 🧱 Address model (dummy)
-class _Address {
-  final String label;
-  final String name;
-  final String phone;
-  final String address;
-
-  _Address({
-    required this.label,
-    required this.name,
-    required this.phone,
-    required this.address,
-  });
-}

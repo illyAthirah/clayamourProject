@@ -1,18 +1,28 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'delivery_addresses_page.dart';
+import 'package:clayamour/services/firebase_service.dart';
 
-class CheckoutPage extends StatelessWidget {
+class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
 
-  // 🎨 ClayAmour palette
+  @override
+  State<CheckoutPage> createState() => _CheckoutPageState();
+}
+
+class _CheckoutPageState extends State<CheckoutPage> {
+  // ClayAmour palette
   static const Color primary = Color(0xFFE8A0BF);
   static const Color background = Color(0xFFFAF7F5);
   static const Color surface = Colors.white;
   static const Color textPrimary = Color(0xFF2E2E2E);
   static const Color textSecondary = Color(0xFF6F6F6F);
 
+  bool _placing = false;
+
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseService.uid;
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
@@ -28,26 +38,41 @@ class CheckoutPage extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _sectionTitle("Delivery Address"),
-            _addressCard(context),
-            const SizedBox(height: 28),
+      body: uid == null
+          ? const Center(child: Text("Please sign in to checkout."))
+          : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirebaseService.userSubcollection(uid, 'cart')
+                  .where('selected', isEqualTo: true)
+                  .snapshots(),
+              builder: (context, cartSnap) {
+                final items = cartSnap.data?.docs ?? [];
+                final total = items.fold<int>(0, (runningTotal, doc) {
+                  final data = doc.data();
+                  final price = (data['price'] as num?)?.toInt() ?? 0;
+                  final base = (data['basePrice'] as num?)?.toInt() ?? 0;
+                  final flowers = _sumLineItems(data['flowers']);
+                  final characters = _sumLineItems(data['characters']);
+                  return runningTotal + price + base + flowers + characters;
+                });
 
-            _sectionTitle("Order Summary"),
-            _orderSummaryCard(),
-            const SizedBox(height: 28),
-
-            _sectionTitle("Payment Method"),
-            _paymentMethodCard(),
-          ],
-        ),
-      ),
-
-      // 🔒 Place order button
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _sectionTitle("Delivery Address"),
+                      _addressCard(context, uid),
+                      const SizedBox(height: 28),
+                      _sectionTitle("Order Summary"),
+                      _orderSummaryCard(items, total),
+                      const SizedBox(height: 28),
+                      _sectionTitle("Payment Method"),
+                      _paymentMethodCard(),
+                    ],
+                  ),
+                );
+              },
+            ),
       bottomSheet: Container(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         color: background,
@@ -61,12 +86,10 @@ class CheckoutPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            onPressed: () {
-              // later → place order API
-            },
-            child: const Text(
-              "Place Order",
-              style: TextStyle(fontSize: 15),
+            onPressed: _placing ? null : _placeOrder,
+            child: Text(
+              _placing ? "Placing..." : "Place Order",
+              style: const TextStyle(fontSize: 15),
             ),
           ),
         ),
@@ -74,8 +97,20 @@ class CheckoutPage extends StatelessWidget {
     );
   }
 
-  // 🏠 Address section
-  Widget _addressCard(BuildContext context) {
+  int _sumLineItems(dynamic raw) {
+    if (raw is! Map<String, dynamic>) return 0;
+    int total = 0;
+    for (final v in raw.values) {
+      if (v is Map<String, dynamic>) {
+        final unit = (v['unitPrice'] as num?)?.toInt() ?? 0;
+        final qty = (v['qty'] as num?)?.toInt() ?? 0;
+        total += unit * qty;
+      }
+    }
+    return total;
+  }
+
+  Widget _addressCard(BuildContext context, String uid) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -90,44 +125,71 @@ class CheckoutPage extends StatelessWidget {
           color: surface,
           borderRadius: BorderRadius.circular(22),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.location_on_outlined, color: primary),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    "Home",
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: textPrimary,
+        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirebaseService.userSubcollection(uid, 'addresses')
+              .orderBy('updatedAt', descending: true)
+              .limit(1)
+              .snapshots(),
+          builder: (context, snap) {
+            final docs = snap.data?.docs ?? [];
+            if (docs.isEmpty) {
+              return const Row(
+                children: [
+                  Icon(Icons.location_on_outlined, color: primary),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      "Add a delivery address",
+                      style: TextStyle(color: textSecondary),
                     ),
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    "Aqilah Joharudin • 012-3456789",
-                    style: TextStyle(color: textSecondary),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    "No 12, Jalan Pintas Puding, Batu Pahat, Johor",
-                    style: TextStyle(color: textSecondary),
-                  ),
+                  Icon(Icons.arrow_forward_ios, size: 14),
                 ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward_ios, size: 14),
-          ],
+              );
+            }
+            final data = docs.first.data();
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.location_on_outlined, color: primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        data['label']?.toString() ?? 'Address',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "${data['name'] ?? ''} - ${data['phone'] ?? ''}",
+                        style: const TextStyle(color: textSecondary),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        data['address']?.toString() ?? '',
+                        style: const TextStyle(color: textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios, size: 14),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  // 📦 Order summary
-  Widget _orderSummaryCard() {
+  Widget _orderSummaryCard(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> items,
+    int total,
+  ) {
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(16),
@@ -135,56 +197,61 @@ class CheckoutPage extends StatelessWidget {
         color: surface,
         borderRadius: BorderRadius.circular(22),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
-            "Custom Bouquet",
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: textPrimary,
+      child: items.isEmpty
+          ? const Text("No selected items.")
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ...items.map((doc) {
+                  final data = doc.data();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          data['title']?.toString() ?? 'Bouquet',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text("• ${data['subtitle'] ?? ''}"),
+                        if (data['theme'] != null)
+                          Text(
+                            "Theme: ${data['theme']}",
+                            style: const TextStyle(color: textSecondary),
+                          ),
+                      ],
+                    ),
+                  );
+                }),
+                const Divider(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Total",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: textPrimary,
+                      ),
+                    ),
+                    Text(
+                      "RM$total",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ),
-          SizedBox(height: 8),
-          Text("• Rose × 10"),
-          Text("• Lily × 10"),
-          Text("• Graduate Character × 1"),
-          SizedBox(height: 10),
-          Text(
-            "Theme: Pastel",
-            style: TextStyle(color: textSecondary),
-          ),
-          SizedBox(height: 6),
-          Text(
-            "Ready Date: 20 May 2025",
-            style: TextStyle(color: textSecondary),
-          ),
-          Divider(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "Total",
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: textPrimary,
-                ),
-              ),
-              Text(
-                "RM235",
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: primary,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
-  // 💳 Payment method
   Widget _paymentMethodCard() {
     return Container(
       margin: const EdgeInsets.only(top: 12),
@@ -221,5 +288,47 @@ class CheckoutPage extends StatelessWidget {
         color: textPrimary,
       ),
     );
+  }
+
+  Future<void> _placeOrder() async {
+    final uid = FirebaseService.uid;
+    if (uid == null) return;
+
+    setState(() => _placing = true);
+    try {
+      final cartSnap = await FirebaseService.userSubcollection(uid, 'cart')
+          .where('selected', isEqualTo: true)
+          .get();
+      if (cartSnap.docs.isEmpty) return;
+
+      final items = cartSnap.docs.map((d) => d.data()).toList();
+      int total = 0;
+      for (final data in items) {
+        final price = (data['price'] as num?)?.toInt() ?? 0;
+        final base = (data['basePrice'] as num?)?.toInt() ?? 0;
+        final flowers = _sumLineItems(data['flowers']);
+        final characters = _sumLineItems(data['characters']);
+        total += price + base + flowers + characters;
+      }
+
+      await FirebaseService.userSubcollection(uid, 'orders').add({
+        'items': items,
+        'total': total,
+        'status': 'Placed',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      for (final doc in cartSnap.docs) {
+        await doc.reference.delete();
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Order placed successfully.")),
+      );
+      Navigator.pop(context);
+    } finally {
+      if (mounted) setState(() => _placing = false);
+    }
   }
 }

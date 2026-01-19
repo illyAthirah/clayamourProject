@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:clayamour/services/firebase_service.dart';
 import 'main_nav_page.dart';
 
 class AuthPage extends StatefulWidget {
@@ -10,6 +11,12 @@ class AuthPage extends StatefulWidget {
 
 class _AuthPageState extends State<AuthPage> {
   bool isLogin = true;
+  bool _loading = false;
+
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
 
   // 🎨 ClayAmour palette
   static const Color primary = Color(0xFFE8A0BF);
@@ -17,6 +24,15 @@ class _AuthPageState extends State<AuthPage> {
   static const Color surface = Colors.white;
   static const Color textPrimary = Color(0xFF2E2E2E);
   static const Color textSecondary = Color(0xFF6F6F6F);
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +72,7 @@ class _AuthPageState extends State<AuthPage> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {},
+                    onPressed: _loading ? null : _resetPassword,
                     child: const Text("Forgot password?"),
                   ),
                 ),
@@ -74,6 +90,7 @@ class _AuthPageState extends State<AuthPage> {
               _socialButton(
                 icon: Icons.g_mobiledata,
                 label: "Continue with Google",
+                onPressed: _signInWithGoogle,
               ),
               const SizedBox(height: 12),
               _socialButton(
@@ -116,7 +133,10 @@ class _AuthPageState extends State<AuthPage> {
   Widget _toggleButton(String label, bool active) {
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => isLogin = label == "Login"),
+        onTap: () {
+          if (_loading) return;
+          setState(() => isLogin = label == "Login");
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -146,7 +166,7 @@ class _AuthPageState extends State<AuthPage> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha((0.05 * 255).round()),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -154,19 +174,26 @@ class _AuthPageState extends State<AuthPage> {
       ),
       child: Column(
         children: [
-          if (!isLogin) _input("Full Name"),
-          _input("Email"),
-          _input("Password", obscure: true),
-          if (!isLogin) _input("Confirm Password", obscure: true),
+          if (!isLogin) _input("Full Name", controller: _nameCtrl),
+          _input("Email", controller: _emailCtrl),
+          _input("Password", controller: _passwordCtrl, obscure: true),
+          if (!isLogin)
+            _input("Confirm Password",
+                controller: _confirmCtrl, obscure: true),
         ],
       ),
     );
   }
 
-  Widget _input(String label, {bool obscure = false}) {
+  Widget _input(
+    String label, {
+    required TextEditingController controller,
+    bool obscure = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextField(
+        controller: controller,
         obscureText: obscure,
         decoration: InputDecoration(
           labelText: label,
@@ -193,14 +220,9 @@ class _AuthPageState extends State<AuthPage> {
             borderRadius: BorderRadius.circular(18),
           ),
         ),
-        onPressed: () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const MainNavPage()),
-          );
-        },
+        onPressed: _loading ? null : _submit,
         child: Text(
-          isLogin ? "Login" : "Create Account",
+          _loading ? "Please wait..." : (isLogin ? "Login" : "Create Account"),
           style: const TextStyle(fontSize: 16),
         ),
       ),
@@ -222,7 +244,11 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   // 🔐 Social button (UI)
-  Widget _socialButton({required IconData icon, required String label}) {
+  Widget _socialButton({
+    required IconData icon,
+    required String label,
+    VoidCallback? onPressed,
+  }) {
     return SizedBox(
       width: double.infinity,
       height: 48,
@@ -234,8 +260,90 @@ class _AuthPageState extends State<AuthPage> {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        onPressed: () {},
+        onPressed: _loading ? null : onPressed ?? () {},
       ),
     );
   }
+
+  Future<void> _submit() async {
+    final email = _emailCtrl.text.trim();
+    final password = _passwordCtrl.text;
+    final name = _nameCtrl.text.trim();
+    final confirm = _confirmCtrl.text;
+
+    if (email.isEmpty || password.isEmpty || (!isLogin && name.isEmpty)) {
+      _showError("Please fill in all required fields.");
+      return;
+    }
+    if (!isLogin && password != confirm) {
+      _showError("Passwords do not match.");
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      if (isLogin) {
+        await FirebaseService.signIn(email: email, password: password);
+      } else {
+        await FirebaseService.signUp(
+          name: name,
+          email: email,
+          password: password,
+        );
+      }
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainNavPage()),
+      );
+    } catch (e) {
+      _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _resetPassword() async {
+    final email = _emailCtrl.text.trim();
+    if (email.isEmpty) {
+      _showError("Enter your email to reset password.");
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      await FirebaseService.auth.sendPasswordResetEmail(email: email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Password reset email sent.")),
+      );
+    } catch (e) {
+      _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() => _loading = true);
+    try {
+      final userCredential = await FirebaseService.signInWithGoogle();
+      if (userCredential != null && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainNavPage()),
+        );
+      }
+    } catch (e) {
+      _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 }
+

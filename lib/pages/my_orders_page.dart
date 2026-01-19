@@ -1,10 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:clayamour/pages/order_details_page.dart';
+import 'package:clayamour/services/firebase_service.dart';
 
 class MyOrdersPage extends StatelessWidget {
   const MyOrdersPage({super.key});
 
-  // 🎨 ClayAmour palette
+  // ClayAmour palette
   static const Color primary = Color(0xFFE8A0BF);
   static const Color background = Color(0xFFFAF7F5);
   static const Color surface = Colors.white;
@@ -13,6 +15,7 @@ class MyOrdersPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseService.uid;
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
@@ -28,51 +31,51 @@ class MyOrdersPage extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          _orderCard(
-            context: context,
-            orderId: "CA-10231",
-            status: "In Progress",
-            statusColor: Colors.orange,
-            readyDate: "12 May 2025",
-            items: const ["Rose Bloom Bouquet × 1"],
-            total: "RM89",
-          ),
-          _orderCard(
-            context: context,
-            orderId: "CA-10212",
-            status: "Processing",
-            statusColor: Colors.blue,
-            readyDate: "20 May 2025",
-            items: const ["Rose × 10", "Lily × 10", "Graduate Character × 1"],
-            total: "RM235",
-          ),
-          _orderCard(
-            context: context,
-            orderId: "CA-10198",
-            status: "Completed",
-            statusColor: Colors.green,
-            readyDate: "02 April 2025",
-            items: const ["Sunflower Bouquet × 1"],
-            total: "RM79",
-          ),
-        ],
-      ),
+      body: uid == null
+          ? const Center(child: Text("Please sign in to view orders."))
+          : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirebaseService.userSubcollection(uid, 'orders')
+                  .orderBy('createdAt', descending: true)
+                  .snapshots(),
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final docs = snap.data?.docs ?? [];
+                if (docs.isEmpty) {
+                  return const Center(child: Text("No orders yet."));
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: docs.length,
+                  itemBuilder: (_, i) {
+                    final doc = docs[i];
+                    final data = doc.data();
+                    return _orderCard(context, doc.id, data);
+                  },
+                );
+              },
+            ),
     );
   }
 
-  // 🧾 Order card
-  Widget _orderCard({
-    required BuildContext context,
-    required String orderId,
-    required String status,
-    required Color statusColor,
-    required String readyDate,
-    required List<String> items,
-    required String total,
-  }) {
+  Widget _orderCard(
+    BuildContext context,
+    String orderId,
+    Map<String, dynamic> data,
+  ) {
+    final status = data['status']?.toString() ?? 'Placed';
+    final statusColor = _statusColor(status);
+    final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+    final total = data['total'] ?? 0;
+    final items = (data['items'] as List<dynamic>? ?? [])
+        .map((e) => e as Map<String, dynamic>)
+        .toList();
+    final itemLabels = items
+        .map((i) => i['subtitle']?.toString() ?? i['title']?.toString() ?? '')
+        .where((s) => s.isNotEmpty)
+        .toList();
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(16),
@@ -83,7 +86,6 @@ class MyOrdersPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -100,7 +102,7 @@ class MyOrdersPage extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.15),
+                  color: statusColor.withAlpha((0.15 * 255).round()),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -114,13 +116,10 @@ class MyOrdersPage extends StatelessWidget {
               ),
             ],
           ),
-
           const Divider(height: 24),
-
-          // Items
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: items
+            children: itemLabels
                 .map(
                   (item) => Padding(
                     padding: const EdgeInsets.only(bottom: 6),
@@ -132,19 +131,17 @@ class MyOrdersPage extends StatelessWidget {
                 )
                 .toList(),
           ),
-
           const SizedBox(height: 10),
-
-          _infoRow("Ready Date", readyDate),
-
+          _infoRow(
+            "Placed",
+            createdAt == null ? "-" : _formatDate(createdAt),
+          ),
           const Divider(height: 24),
-
-          // Footer
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                total,
+                "RM$total",
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -155,7 +152,10 @@ class MyOrdersPage extends StatelessWidget {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const OrderDetailsPage()),
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          OrderDetailsPage(orderId: orderId, data: data),
+                    ),
                   );
                 },
                 child: const Text("View Details"),
@@ -178,4 +178,36 @@ class MyOrdersPage extends StatelessWidget {
       ],
     );
   }
+
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return Colors.green;
+      case 'processing':
+        return Colors.blue;
+      case 'in progress':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _formatDate(DateTime d) {
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    return "${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}";
+  }
 }
+

@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'pages/landing_page.dart';
 import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:clayamour/pages/main_nav_page.dart';
+import 'package:clayamour/services/firebase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,7 +25,20 @@ class ClayAmourApp extends StatelessWidget {
       theme: ThemeData(
         textTheme: GoogleFonts.poppinsTextTheme(),
       ),
-      home: const LandingPage(),
+      home: StreamBuilder(
+        stream: FirebaseService.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (snapshot.data != null) {
+            return const MainNavPage();
+          }
+          return const LandingPage();
+        },
+      ),
     );
   }
 }
