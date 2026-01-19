@@ -1,9 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:clayamour/pages/map_picker_page.dart';
 import 'package:clayamour/services/firebase_service.dart';
 
 class AddAddressPage extends StatefulWidget {
-  const AddAddressPage({super.key});
+  final LatLng? initialLocation;
+
+  const AddAddressPage({super.key, this.initialLocation});
 
   @override
   State<AddAddressPage> createState() => _AddAddressPageState();
@@ -20,11 +24,20 @@ class _AddAddressPageState extends State<AddAddressPage> {
   String _label = "Home";
   bool _hasPinned = false;
   String _pinnedText = "Pin location to auto-fill address";
+  LatLng? _pinnedLocation;
   bool _saving = false;
 
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialLocation != null) {
+      _applyPinnedLocation(widget.initialLocation!, overwriteAddress: true);
+    }
+  }
 
   @override
   void dispose() {
@@ -65,12 +78,21 @@ class _AddAddressPageState extends State<AddAddressPage> {
             const SizedBox(height: 10),
             _sectionTitle("Pin Location"),
             _pinLocationBox(
-              onTap: () {
+              onTap: () async {
+                final selected = await Navigator.push<LatLng>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MapPickerPage(
+                      initialLocation: _pinnedLocation,
+                    ),
+                  ),
+                );
+                if (!mounted || selected == null) return;
                 setState(() {
-                  _hasPinned = true;
-                  _pinnedText = "Pinned: UTHM, Batu Pahat (dummy)";
-                  _addressCtrl.text =
-                      "UTHM,\n83000 Batu Pahat, Johor\nMalaysia";
+                  _applyPinnedLocation(
+                    selected,
+                    overwriteAddress: _addressCtrl.text.trim().isEmpty,
+                  );
                 });
               },
             ),
@@ -247,6 +269,21 @@ class _AddAddressPageState extends State<AddAddressPage> {
     );
   }
 
+  String _formatLatLng(LatLng location) {
+    return "${location.latitude.toStringAsFixed(6)}, "
+        "${location.longitude.toStringAsFixed(6)}";
+  }
+
+  void _applyPinnedLocation(
+    LatLng location, {
+    bool overwriteAddress = false,
+  }) {
+    _pinnedLocation = location;
+    _hasPinned = true;
+    _pinnedText = "Pinned: ${_formatLatLng(location)}";
+    setState(() {});
+  }
+
   Future<void> _saveAddress() async {
     final uid = FirebaseService.uid;
     if (uid == null) return;
@@ -260,14 +297,19 @@ class _AddAddressPageState extends State<AddAddressPage> {
     }
     setState(() => _saving = true);
     try {
-      await FirebaseService.userSubcollection(uid, 'addresses').add({
+      final payload = {
         'label': _label,
         'name': _nameCtrl.text.trim(),
         'phone': _phoneCtrl.text.trim(),
         'address': _addressCtrl.text.trim(),
         'isDefault': false,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      if (_pinnedLocation != null) {
+        payload['latitude'] = _pinnedLocation!.latitude;
+        payload['longitude'] = _pinnedLocation!.longitude;
+      }
+      await FirebaseService.userSubcollection(uid, 'addresses').add(payload);
       if (!mounted) return;
       Navigator.pop(context);
     } finally {
@@ -275,4 +317,3 @@ class _AddAddressPageState extends State<AddAddressPage> {
     }
   }
 }
-

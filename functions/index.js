@@ -9,7 +9,10 @@
 
 const {setGlobalOptions} = require("firebase-functions");
 const {onRequest} = require("firebase-functions/https");
+const {defineSecret} = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
+
+const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 
 // For cost control, you can set the maximum number of containers that can be
 // running at the same time. This helps mitigate the impact of unexpected
@@ -30,3 +33,47 @@ setGlobalOptions({ maxInstances: 10 });
 //   logger.info("Hello logs!", {structuredData: true});
 //   response.send("Hello from Firebase!");
 // });
+
+exports.createPaymentIntent = onRequest(
+    {secrets: [stripeSecret]},
+    async (request, response) => {
+  response.set("Access-Control-Allow-Origin", "*");
+  response.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  response.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+
+  if (request.method === "OPTIONS") {
+    response.status(204).send("");
+    return;
+  }
+
+  if (request.method !== "POST") {
+    response.status(405).send("Method not allowed.");
+    return;
+  }
+
+  if (!stripeSecret.value()) {
+    logger.error("Missing STRIPE_SECRET_KEY secret.");
+    response.status(500).send("Stripe is not configured.");
+    return;
+  }
+
+  try {
+    const stripe = require("stripe")(stripeSecret.value());
+    const {amount, currency} = request.body || {};
+    if (!amount || !currency) {
+      response.status(400).send("Missing amount or currency.");
+      return;
+    }
+
+    const intent = await stripe.paymentIntents.create({
+      amount,
+      currency,
+      automatic_payment_methods: {enabled: true},
+    });
+
+    response.status(200).json({clientSecret: intent.client_secret});
+  } catch (error) {
+    logger.error("Stripe error", error);
+    response.status(500).send("Failed to create payment intent.");
+  }
+});

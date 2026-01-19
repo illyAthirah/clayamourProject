@@ -1,7 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'delivery_addresses_page.dart';
 import 'package:clayamour/services/firebase_service.dart';
+import 'package:clayamour/services/stripe_service.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -19,6 +22,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
   static const Color textSecondary = Color(0xFF6F6F6F);
 
   bool _placing = false;
+  bool _isCardComplete = false;
+  final CardEditController _cardController = CardEditController();
+
+  @override
+  void dispose() {
+    _cardController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -260,20 +271,41 @@ class _CheckoutPageState extends State<CheckoutPage> {
         color: surface,
         borderRadius: BorderRadius.circular(22),
       ),
-      child: Row(
-        children: const [
-          Icon(Icons.account_balance_wallet_outlined, color: primary),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              "Online Banking / E-Wallet",
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: textPrimary,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.account_balance_wallet_outlined, color: primary),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  "Stripe Payment",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: textPrimary,
+                  ),
+                ),
+              ),
+              Icon(Icons.check_circle, color: primary),
+            ],
+          ),
+          if (kIsWeb) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 48,
+              width: double.infinity,
+              child: CardField(
+                controller: _cardController,
+                onCardChanged: (details) {
+                  final complete = details?.complete ?? false;
+                  if (_isCardComplete != complete) {
+                    setState(() => _isCardComplete = complete);
+                  }
+                },
               ),
             ),
-          ),
-          Icon(Icons.check_circle, color: primary),
+          ],
         ],
       ),
     );
@@ -311,6 +343,48 @@ class _CheckoutPageState extends State<CheckoutPage> {
         total += price + base + flowers + characters;
       }
 
+      if (total <= 0) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Unable to process zero total.")),
+        );
+        return;
+      }
+
+      final clientSecret = await StripeService.createPaymentIntent(
+        amount: total * 100,
+        currency: 'myr',
+      );
+
+      if (kIsWeb) {
+        if (!_isCardComplete) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Please complete card details.")),
+          );
+          return;
+        }
+        await Stripe.instance.confirmPayment(
+          paymentIntentClientSecret: clientSecret,
+          data: PaymentMethodParams.card(
+            paymentMethodData: const PaymentMethodData(),
+          ),
+        );
+      } else {
+        await Stripe.instance.initPaymentSheet(
+          paymentSheetParameters: SetupPaymentSheetParameters(
+            paymentIntentClientSecret: clientSecret,
+            merchantDisplayName: 'ClayAmour',
+            googlePay: const PaymentSheetGooglePay(
+              merchantCountryCode: 'MY',
+              testEnv: true,
+            ),
+            style: ThemeMode.light,
+          ),
+        );
+        await Stripe.instance.presentPaymentSheet();
+      }
+
       await FirebaseService.userSubcollection(uid, 'orders').add({
         'items': items,
         'total': total,
@@ -327,6 +401,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
         const SnackBar(content: Text("Order placed successfully.")),
       );
       Navigator.pop(context);
+    } on StripeException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.error.localizedMessage ?? "Payment failed")),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Payment failed. Please try again.")),
+      );
     } finally {
       if (mounted) setState(() => _placing = false);
     }

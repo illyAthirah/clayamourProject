@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:clayamour/pages/add_address_page.dart';
 import 'package:clayamour/pages/edit_address_page.dart';
+import 'package:clayamour/pages/map_picker_page.dart';
 import 'package:clayamour/services/firebase_service.dart';
 
 class DeliveryAddressesPage extends StatelessWidget {
@@ -36,7 +38,7 @@ class DeliveryAddressesPage extends StatelessWidget {
           ? const Center(child: Text("Please sign in to manage addresses."))
           : Column(
               children: [
-                _pinLocationSection(),
+                _pinLocationSection(context),
                 Expanded(
                   child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                     stream: FirebaseService.userSubcollection(uid, 'addresses')
@@ -105,47 +107,62 @@ class DeliveryAddressesPage extends StatelessWidget {
     );
   }
 
-  Widget _pinLocationSection() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: primary.withAlpha((0.3 * 255).round())),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: primary.withAlpha((0.15 * 255).round()),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.my_location, color: primary),
+  Widget _pinLocationSection(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        final selected = await Navigator.push<LatLng>(
+          context,
+          MaterialPageRoute(builder: (_) => const MapPickerPage()),
+        );
+        if (!context.mounted || selected == null) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AddAddressPage(initialLocation: selected),
           ),
-          const SizedBox(width: 14),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Pin your current location",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: textPrimary,
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: primary.withAlpha((0.3 * 255).round())),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: primary.withAlpha((0.15 * 255).round()),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.my_location, color: primary),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Pin your current location",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
                   ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  "Use GPS to auto-fill your delivery address",
-                  style: TextStyle(fontSize: 13, color: textSecondary),
-                ),
-              ],
+                  SizedBox(height: 4),
+                  Text(
+                    "Use GPS to auto-fill your delivery address",
+                    style: TextStyle(fontSize: 13, color: textSecondary),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Icon(Icons.chevron_right, color: textSecondary),
-        ],
+            const Icon(Icons.chevron_right, color: textSecondary),
+          ],
+        ),
       ),
     );
   }

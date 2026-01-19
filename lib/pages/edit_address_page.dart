@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:clayamour/pages/map_picker_page.dart';
 import 'package:clayamour/services/firebase_service.dart';
 
 class EditAddressPage extends StatefulWidget {
@@ -25,6 +27,9 @@ class _EditAddressPageState extends State<EditAddressPage> {
   final _labelCtrl = TextEditingController();
   bool _loaded = false;
   bool _saving = false;
+  bool _hasPinned = false;
+  String _pinnedText = "Pin location to auto-fill address";
+  LatLng? _pinnedLocation;
 
   @override
   void dispose() {
@@ -72,6 +77,13 @@ class _EditAddressPageState extends State<EditAddressPage> {
                   _nameCtrl.text = data['name']?.toString() ?? '';
                   _phoneCtrl.text = data['phone']?.toString() ?? '';
                   _addressCtrl.text = data['address']?.toString() ?? '';
+                  final latitude = data['latitude'];
+                  final longitude = data['longitude'];
+                  if (latitude is num && longitude is num) {
+                    _applyPinnedLocation(
+                      LatLng(latitude.toDouble(), longitude.toDouble()),
+                    );
+                  }
                   _loaded = true;
                 }
                 return SingleChildScrollView(
@@ -100,7 +112,21 @@ class _EditAddressPageState extends State<EditAddressPage> {
 
   Widget _pinLocationBox() {
     return InkWell(
-      onTap: () {},
+      onTap: () async {
+        final selected = await Navigator.push<LatLng>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MapPickerPage(initialLocation: _pinnedLocation),
+          ),
+        );
+        if (!mounted || selected == null) return;
+        setState(() {
+          _applyPinnedLocation(
+            selected,
+            overwriteAddress: _addressCtrl.text.trim().isEmpty,
+          );
+        });
+      },
       borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -110,29 +136,31 @@ class _EditAddressPageState extends State<EditAddressPage> {
           border: Border.all(color: primary.withAlpha((0.4 * 255).round())),
         ),
         child: Row(
-          children: const [
-            Icon(Icons.location_pin, color: primary, size: 30),
-            SizedBox(width: 16),
+          children: [
+            const Icon(Icons.location_pin, color: primary, size: 30),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Pin Location",
-                    style: TextStyle(
+                    _hasPinned ? "Location pinned" : "Pin Location",
+                    style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       color: textPrimary,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
-                    "Tap to select location on map",
-                    style: TextStyle(fontSize: 13, color: textSecondary),
+                    _pinnedText,
+                    style: const TextStyle(fontSize: 13, color: textSecondary),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right),
+            const Icon(Icons.chevron_right),
           ],
         ),
       ),
@@ -172,6 +200,21 @@ class _EditAddressPageState extends State<EditAddressPage> {
     );
   }
 
+  String _formatLatLng(LatLng location) {
+    return "${location.latitude.toStringAsFixed(6)}, "
+        "${location.longitude.toStringAsFixed(6)}";
+  }
+
+  void _applyPinnedLocation(
+    LatLng location, {
+    bool overwriteAddress = false,
+  }) {
+    _pinnedLocation = location;
+    _hasPinned = true;
+    _pinnedText = "Pinned: ${_formatLatLng(location)}";
+    setState(() {});
+  }
+
   Widget _saveButton(String uid) {
     return SizedBox(
       width: double.infinity,
@@ -204,15 +247,20 @@ class _EditAddressPageState extends State<EditAddressPage> {
     }
     setState(() => _saving = true);
     try {
-      await FirebaseService.userSubcollection(uid, 'addresses')
-          .doc(widget.addressId)
-          .update({
+      final payload = {
         'label': _labelCtrl.text.trim(),
         'name': _nameCtrl.text.trim(),
         'phone': _phoneCtrl.text.trim(),
         'address': _addressCtrl.text.trim(),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      if (_pinnedLocation != null) {
+        payload['latitude'] = _pinnedLocation!.latitude;
+        payload['longitude'] = _pinnedLocation!.longitude;
+      }
+      await FirebaseService.userSubcollection(uid, 'addresses')
+          .doc(widget.addressId)
+          .update(payload);
       if (!mounted) return;
       Navigator.pop(context);
     } finally {
@@ -220,4 +268,3 @@ class _EditAddressPageState extends State<EditAddressPage> {
     }
   }
 }
-
