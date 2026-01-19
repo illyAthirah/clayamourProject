@@ -573,7 +573,7 @@ class _Item {
   final String category;
   int quantity;
 
-  _Item(this.id, this.name, this.price, {this.category = "Flowers"})
+  _Item(this.id, this.name, this.price, {this.category = "Custom"})
       : quantity = 0;
 
   _Item copy() => _Item(id, name, price, category: category);
