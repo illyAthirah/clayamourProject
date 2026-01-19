@@ -40,11 +40,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
       appBar: AppBar(
         backgroundColor: background,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          color: textPrimary,
-          onPressed: () => Navigator.pop(context),
-        ),
+        centerTitle: true,
         title: const Text(
           "Customize Bouquet",
           style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary),
@@ -72,13 +68,13 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
               ),
             _addButton("Add Bouquet Base", "Custom"),
             const SizedBox(height: 8),
-            _addButton("Add Characters", "Characters"),
-            const SizedBox(height: 32),
+            _addButton("Add-Ons", "Add-Ons"),
+            const SizedBox(height: 8),
             _sectionTitle("Personalize it"),
             _sectionSub("Bouquet Theme"),
             _themeSelector(),
             const SizedBox(height: 20),
-            _sectionSub("Custom Message"),
+            _sectionSub("Custom Message Note"),
             _messageField(),
             const SizedBox(height: 32),
             _sectionTitle("Finalize your order"),
@@ -96,7 +92,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
 
   Widget _sectionTitle(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(top: 24, bottom: 12),
       child: Text(
         text,
         style: const TextStyle(
@@ -129,6 +125,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
       decoration: BoxDecoration(
         color: surface,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.black.withAlpha((0.05 * 255).round())),
       ),
       child: Row(
         children: [
@@ -183,7 +180,13 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
               }),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Text("${item.quantity}"),
+                child: Text(
+                  "${item.quantity}",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: textPrimary,
+                  ),
+                ),
               ),
               _qtyButton(Icons.add, () {
                 setState(() => item.quantity++);
@@ -367,7 +370,11 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
   Widget _pickerGridCard(_Item item) {
     return Material(
       color: surface,
-      borderRadius: BorderRadius.circular(18),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: Colors.black.withAlpha((0.05 * 255).round())),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: () {
@@ -378,6 +385,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
           });
           Navigator.pop(context);
         },
+
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
