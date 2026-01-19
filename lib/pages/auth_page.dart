@@ -92,11 +92,6 @@ class _AuthPageState extends State<AuthPage> {
                 label: "Continue with Google",
                 onPressed: _signInWithGoogle,
               ),
-              const SizedBox(height: 12),
-              _socialButton(
-                icon: Icons.apple,
-                label: "Continue with Apple",
-              ),
 
               if (!isLogin) ...[
                 const SizedBox(height: 24),
