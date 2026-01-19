@@ -36,7 +36,12 @@ const products = [
   { name: "Ribbon Decoration", category: "Add-Ons", price: 10, description: "Beautiful ribbon decoration", featured: false, stock: 40 },
   { name: "LED Lights", category: "Add-Ons", price: 35, description: "Decorative LED lights", featured: false, stock: 20 },
   { name: "Personalized Tag", category: "Add-Ons", price: 12, description: "Custom name tag for your bouquet", featured: false, stock: 45 },
-  { name: "Gift Bag", category: "Add-Ons", price: 20, description: "Elegant gift bag packaging", featured: false, stock: 35 }
+  { name: "Gift Bag", category: "Add-Ons", price: 20, description: "Elegant gift bag packaging", featured: false, stock: 35 },
+
+  // Single (3 items)
+  { name: "Rose", category: "Custom", price: 2, description: "Single rose", featured: false, stock: 50 },
+  { name: "Orchid", category: "Custom", price: 2, description: "Single orchid", featured: false, stock: 30 },
+  { name: "Lily", category: "Custom", price: 2, description: "Single lily", featured: false, stock: 40 }
 ];
 
 // Main seeding function
