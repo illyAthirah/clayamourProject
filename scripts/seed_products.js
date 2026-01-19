@@ -39,9 +39,10 @@ const products = [
   { name: "Gift Bag", category: "Add-Ons", price: 20, description: "Elegant gift bag packaging", featured: false, stock: 35 },
 
   // Single (3 items)
-  { name: "Rose", category: "Custom", price: 2, description: "Single rose", featured: false, stock: 50 },
-  { name: "Orchid", category: "Custom", price: 2, description: "Single orchid", featured: false, stock: 30 },
-  { name: "Lily", category: "Custom", price: 2, description: "Single lily", featured: false, stock: 40 }
+  { name: "Timeless Rose", category: "Custom", price: 2, description: "Classic clay rose symbolizing love and elegance", featured: false, stock: 50 },
+  { name: "Golden Joy", category: "Custom", price: 2, description: "Bright sunflower that brings warmth and happiness", featured: false, stock: 30 },
+  { name: "Grace Lily", category: "Custom", price: 2, description: "Elegant lily representing purity and calm", featured: false, stock: 40 },
+  { name: "Pure Daisy", category: "Custom", price: 2, description: "Simple daisy with a fresh, cheerful feel", featured: false, stock: 40 }
 ];
 
 // Main seeding function
