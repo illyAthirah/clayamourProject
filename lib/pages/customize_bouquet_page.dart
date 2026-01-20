@@ -135,7 +135,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
               width: 48,
               height: 48,
               child: Image.asset(
-                item.image,
+                _imageFromItem(item),
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) {
                   return const Icon(
@@ -291,7 +291,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
                     d.id,
                     data['name'] ?? 'Item',
                     (data['price'] ?? 0) as int,
-                    image: _imageFromName(data['name']),
+                    image: '', // not used anymore
                     category: category,
                   );
                 }).toList() ??
@@ -394,10 +394,11 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(14),
                   child: Image.asset(
-                    item.image,
+                    _imageFromItem(item),
                     width: double.infinity,
                     height: double.infinity,
                     fit: BoxFit.cover,
+
                     errorBuilder: (_, __, ___) {
                       return Container(
                         color: primary.withAlpha((0.1 * 255).round()),
@@ -589,9 +590,20 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
     });
   }
 
-  String _imageFromName(String name) {
-    return 'assets/single/'
-        '${name.toLowerCase().replaceAll(' ', '_')}.png';
+  String _imageFromItem(_Item item) {
+    final name = item.name.toLowerCase();
+
+    final fileName = name
+        .replaceAll('&', 'and')
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+        .replaceAll(' ', '_');
+
+    if (item.category == 'Add-Ons') {
+      return 'assets/add_ons/$fileName.png';
+    }
+
+    // default = bouquet base
+    return 'assets/single/$fileName.png';
   }
 }
 

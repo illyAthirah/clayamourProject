@@ -13,9 +13,29 @@ class CatalogPage extends StatefulWidget {
 }
 
 class _CatalogPageState extends State<CatalogPage> {
-  String _imageFromName(String name) {
-    return 'assets/flowers/'
-        '${name.toLowerCase().replaceAll(' ', '_')}.png';
+  String _imageFromProduct(Map<String, dynamic> product) {
+    final name = product['name'].toString().toLowerCase();
+    final category = product['category'];
+
+    final fileName = name
+        .replaceAll('&', 'and')
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+        .replaceAll(' ', '_');
+
+    if (category == 'Flowers') {
+      return 'assets/flowers/$fileName.png';
+    }
+
+    if (category == 'Characters') {
+      return 'assets/characters/$fileName.png';
+    }
+
+    if (category == 'Add-Ons') {
+      return 'assets/add_ons/$fileName.png';
+    }
+
+    // fallback
+    return 'assets/flowers/$fileName.png';
   }
 
   // ClayAmour palette
@@ -207,7 +227,7 @@ class _CatalogPageState extends State<CatalogPage> {
                       top: Radius.circular(22),
                     ),
                     child: Image.asset(
-                      _imageFromName(product["name"]),
+                      _imageFromProduct(product),
                       width: double.infinity,
                       height: double.infinity,
                       fit: BoxFit.cover,
