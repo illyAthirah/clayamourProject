@@ -2,16 +2,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:clayamour/pages/order_details_page.dart';
 import 'package:clayamour/services/firebase_service.dart';
+import 'package:clayamour/theme/app_theme.dart';
 
 class MyOrdersPage extends StatelessWidget {
   const MyOrdersPage({super.key});
 
   // ClayAmour palette
-  static const Color primary = Color(0xFFE8A0BF);
-  static const Color background = Color(0xFFFAF7F5);
-  static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF2E2E2E);
-  static const Color textSecondary = Color(0xFF6F6F6F);
+  static const Color primary = AppColors.primary;
+  static const Color background = AppColors.background;
+  static const Color surface = AppColors.surface;
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -210,4 +211,5 @@ class MyOrdersPage extends StatelessWidget {
     return "${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}";
   }
 }
+
 

@@ -1,10 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:clayamour/services/notification_service.dart';
 import 'package:clayamour/services/firebase_service.dart';
 import 'package:flutter/material.dart';
+import 'package:clayamour/theme/app_theme.dart';
 
 class CustomizeBouquetPage extends StatefulWidget {
   const CustomizeBouquetPage({super.key});
-
   @override
   State<CustomizeBouquetPage> createState() => _CustomizeBouquetPageState();
 }
@@ -14,17 +15,14 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
   final List<String> _themes = ["Soft Pink", "Nude", "Pastel", "Lavender"];
   String _customMessage = "";
   DateTime? _readyDate;
-
   // ClayAmour palette
-  static const Color primary = Color(0xFFE8A0BF);
-  static const Color background = Color(0xFFFAF7F5);
-  static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF2E2E2E);
-  static const Color textSecondary = Color(0xFF6F6F6F);
-
+  static const Color primary = AppColors.primary;
+  static const Color background = AppColors.background;
+  static const Color surface = AppColors.surface;
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
   // Selected items
   final Map<String, _Item> _selectedItems = {};
-
   int get _totalPrice {
     int total = 0;
     for (final item in _selectedItems.values) {
@@ -147,7 +145,6 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
               ),
             ),
           ),
-
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -242,11 +239,15 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
     return OutlinedButton(
       style: OutlinedButton.styleFrom(
         foregroundColor: primary,
-        side: const BorderSide(color: primary),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        side: const BorderSide(color: primary, width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       onPressed: () => _showPicker(category, label),
-      child: Text(label),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      ),
     );
   }
 
@@ -296,7 +297,6 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
                   );
                 }).toList() ??
                 <_Item>[];
-
             return _pickerContent(items, title);
           },
         );
@@ -385,7 +385,6 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
           });
           Navigator.pop(context);
         },
-
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -398,7 +397,6 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
                     width: double.infinity,
                     height: double.infinity,
                     fit: BoxFit.cover,
-
                     errorBuilder: (_, __, ___) {
                       return Container(
                         color: primary.withAlpha((0.1 * 255).round()),
@@ -412,7 +410,6 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 8),
               Text(
                 item.name,
@@ -487,19 +484,19 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
   Widget _addToCartButton() {
     return Material(
       color: primary,
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(27),
       child: InkWell(
         onTap: _addToCart,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(27),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
           alignment: Alignment.center,
           child: const Text(
             "Add Bouquet to Cart",
             style: TextStyle(
               color: Colors.white,
-              fontSize: 15,
+              fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -548,7 +545,18 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
       ).showSnackBar(const SnackBar(content: Text("Select items first.")));
       return;
     }
-
+    
+    // Validate date is selected
+    if (_readyDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a ready date before adding to cart'),
+          backgroundColor: AppColors.error,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     final flowers = <String, dynamic>{};
     final characters = <String, dynamic>{};
     for (final item in _selectedItems.values) {
@@ -563,9 +571,7 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
         flowers[item.name] = entry;
       }
     }
-
-    final selectedDate =
-        _readyDate ?? DateTime.now().add(const Duration(days: 21));
+    
     await FirebaseService.userSubcollection(uid, 'cart').add({
       'type': 'custom',
       'title': 'Custom Bouquet',
@@ -575,15 +581,18 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
       'characters': characters,
       'theme': _selectedTheme,
       'message': _customMessage,
-      'readyDate': Timestamp.fromDate(selectedDate),
+      'readyDate': Timestamp.fromDate(_readyDate!),
+
       'selected': true,
       'createdAt': FieldValue.serverTimestamp(),
     });
-
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Custom bouquet added to cart.")),
+
+    await NotificationService.showAddToCartNotification(
+      context,
+      productName: 'Custom Bouquet - $_selectedTheme',
     );
+
     setState(() {
       _selectedItems.clear();
       _customMessage = "";
@@ -592,16 +601,13 @@ class _CustomizeBouquetPageState extends State<CustomizeBouquetPage> {
 
   String _imageFromItem(_Item item) {
     final name = item.name.toLowerCase();
-
     final fileName = name
         .replaceAll('&', 'and')
         .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
         .replaceAll(' ', '_');
-
     if (item.category == 'Add-Ons') {
       return 'assets/add_ons/$fileName.png';
     }
-
     // default = bouquet base
     return 'assets/single/$fileName.png';
   }
@@ -614,7 +620,6 @@ class _Item {
   final String category;
   final String image;
   int quantity;
-
   _Item(
     this.id,
     this.name,
@@ -622,6 +627,5 @@ class _Item {
     required this.image,
     this.category = "Custom",
   }) : quantity = 0;
-
   _Item copy() => _Item(id, name, price, image: image, category: category);
 }

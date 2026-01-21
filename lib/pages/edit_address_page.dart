@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:clayamour/pages/map_picker_page.dart';
 import 'package:clayamour/services/firebase_service.dart';
+import 'package:clayamour/theme/app_theme.dart';
 
 class EditAddressPage extends StatefulWidget {
   final String addressId;
@@ -15,11 +16,11 @@ class EditAddressPage extends StatefulWidget {
 
 class _EditAddressPageState extends State<EditAddressPage> {
   // ClayAmour palette
-  static const Color primary = Color(0xFFE8A0BF);
-  static const Color background = Color(0xFFFAF7F5);
-  static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF2E2E2E);
-  static const Color textSecondary = Color(0xFF6F6F6F);
+  static const Color primary = AppColors.primary;
+  static const Color background = AppColors.background;
+  static const Color surface = AppColors.surface;
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
 
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
@@ -61,9 +62,10 @@ class _EditAddressPageState extends State<EditAddressPage> {
       body: uid == null
           ? const Center(child: Text("Please sign in to edit addresses."))
           : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              stream: FirebaseService.userSubcollection(uid, 'addresses')
-                  .doc(widget.addressId)
-                  .snapshots(),
+              stream: FirebaseService.userSubcollection(
+                uid,
+                'addresses',
+              ).doc(widget.addressId).snapshots(),
               builder: (context, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -205,10 +207,7 @@ class _EditAddressPageState extends State<EditAddressPage> {
         "${location.longitude.toStringAsFixed(6)}";
   }
 
-  void _applyPinnedLocation(
-    LatLng location, {
-    bool overwriteAddress = false,
-  }) {
+  void _applyPinnedLocation(LatLng location, {bool overwriteAddress = false}) {
     _pinnedLocation = location;
     _hasPinned = true;
     _pinnedText = "Pinned: ${_formatLatLng(location)}";
@@ -218,18 +217,19 @@ class _EditAddressPageState extends State<EditAddressPage> {
   Widget _saveButton(String uid) {
     return SizedBox(
       width: double.infinity,
-      height: 48,
+      height: 54,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: primary,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(27),
           ),
         ),
         onPressed: _saving ? null : () => _save(uid),
         child: Text(
           _saving ? "Saving..." : "Save Address",
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -258,9 +258,10 @@ class _EditAddressPageState extends State<EditAddressPage> {
         payload['latitude'] = _pinnedLocation!.latitude;
         payload['longitude'] = _pinnedLocation!.longitude;
       }
-      await FirebaseService.userSubcollection(uid, 'addresses')
-          .doc(widget.addressId)
-          .update(payload);
+      await FirebaseService.userSubcollection(
+        uid,
+        'addresses',
+      ).doc(widget.addressId).update(payload);
       if (!mounted) return;
       Navigator.pop(context);
     } finally {

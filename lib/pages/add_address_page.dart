@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:clayamour/pages/map_picker_page.dart';
 import 'package:clayamour/services/firebase_service.dart';
+import 'package:clayamour/theme/app_theme.dart';
 
 class AddAddressPage extends StatefulWidget {
   final LatLng? initialLocation;
@@ -15,11 +16,11 @@ class AddAddressPage extends StatefulWidget {
 
 class _AddAddressPageState extends State<AddAddressPage> {
   // ClayAmour palette
-  static const Color primary = Color(0xFFE8A0BF);
-  static const Color background = Color(0xFFFAF7F5);
-  static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF2E2E2E);
-  static const Color textSecondary = Color(0xFF6F6F6F);
+  static const Color primary = AppColors.primary;
+  static const Color background = AppColors.background;
+  static const Color surface = AppColors.surface;
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
 
   String _label = "Home";
   bool _hasPinned = false;
@@ -82,9 +83,8 @@ class _AddAddressPageState extends State<AddAddressPage> {
                 final selected = await Navigator.push<LatLng>(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => MapPickerPage(
-                      initialLocation: _pinnedLocation,
-                    ),
+                    builder: (_) =>
+                        MapPickerPage(initialLocation: _pinnedLocation),
                   ),
                 );
                 if (!mounted || selected == null) return;
@@ -107,18 +107,19 @@ class _AddAddressPageState extends State<AddAddressPage> {
         color: background,
         child: SizedBox(
           width: double.infinity,
-          height: 48,
+          height: 54,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: primary,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(27),
               ),
             ),
             onPressed: _saving ? null : _saveAddress,
             child: Text(
               _saving ? "Saving..." : "Save Address",
-              style: const TextStyle(fontSize: 15),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
         ),
@@ -170,7 +171,10 @@ class _AddAddressPageState extends State<AddAddressPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 13, color: textSecondary)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: textSecondary),
+          ),
           const SizedBox(height: 6),
           TextField(
             controller: controller,
@@ -223,7 +227,9 @@ class _AddAddressPageState extends State<AddAddressPage> {
           color: surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: _hasPinned ? primary.withAlpha((0.45 * 255).round()) : Colors.grey.shade200,
+            color: _hasPinned
+                ? primary.withAlpha((0.45 * 255).round())
+                : Colors.grey.shade200,
             width: 1.2,
           ),
         ),
@@ -252,10 +258,7 @@ class _AddAddressPageState extends State<AddAddressPage> {
                   const SizedBox(height: 4),
                   Text(
                     _pinnedText,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: textSecondary,
-                    ),
+                    style: const TextStyle(fontSize: 13, color: textSecondary),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -274,10 +277,7 @@ class _AddAddressPageState extends State<AddAddressPage> {
         "${location.longitude.toStringAsFixed(6)}";
   }
 
-  void _applyPinnedLocation(
-    LatLng location, {
-    bool overwriteAddress = false,
-  }) {
+  void _applyPinnedLocation(LatLng location, {bool overwriteAddress = false}) {
     _pinnedLocation = location;
     _hasPinned = true;
     _pinnedText = "Pinned: ${_formatLatLng(location)}";

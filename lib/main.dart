@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'pages/landing_page.dart';
 import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:clayamour/pages/main_nav_page.dart';
 import 'package:clayamour/services/firebase_service.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:clayamour/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  Stripe.publishableKey = 'pk_test_51SrHwuQd2brvuXIB2fbsC19WBzac7FJ9njPiGkC8CvXSWTl6REP5MbcvBr5wuILq8hbpOPXAUSjVFufsMJeTj7CW00rdTPqXbF';
-  Stripe.merchantIdentifier = 'merchant.com.clayamour';
-  Stripe.urlScheme = 'flutterstripe';
-  await Stripe.instance.applySettings();
   runApp(const ClayAmourApp());
 }
 
@@ -27,9 +22,7 @@ class ClayAmourApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'ClayAmour',
-      theme: ThemeData(
-        textTheme: GoogleFonts.poppinsTextTheme(),
-      ),
+      theme: AppTheme.light(),
       home: StreamBuilder(
         stream: FirebaseService.authStateChanges(),
         builder: (context, snapshot) {

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:clayamour/theme/app_theme.dart';
 
 class AboutClayAmourPage extends StatelessWidget {
   const AboutClayAmourPage({super.key});
 
   // 🎨 ClayAmour palette
-  static const Color primary = Color(0xFFE8A0BF);
-  static const Color background = Color(0xFFFAF7F5);
-  static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF2E2E2E);
-  static const Color textSecondary = Color(0xFF6F6F6F);
+  static const Color primary = AppColors.primary;
+  static const Color background = AppColors.background;
+  static const Color surface = AppColors.surface;
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -73,15 +74,18 @@ class AboutClayAmourPage extends StatelessWidget {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(22),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: primary.withOpacity(0.15),
+            color: primary.withAlpha(38),
             shape: BoxShape.circle,
           ),
-          child: const Icon(
-            Icons.local_florist,
-            size: 40,
-            color: primary,
+          child: ClipOval(
+            child: Image.asset(
+              'assets/logo.png',
+              width: 60,
+              height: 60,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
         const SizedBox(height: 14),
@@ -158,3 +162,4 @@ class AboutClayAmourPage extends StatelessWidget {
     );
   }
 }
+

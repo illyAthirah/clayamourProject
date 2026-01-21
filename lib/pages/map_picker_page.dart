@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:clayamour/theme/app_theme.dart';
 
 class MapPickerPage extends StatefulWidget {
   final LatLng? initialLocation;
@@ -13,10 +14,10 @@ class MapPickerPage extends StatefulWidget {
 
 class _MapPickerPageState extends State<MapPickerPage> {
   // ClayAmour palette
-  static const Color primary = Color(0xFFE8A0BF);
-  static const Color background = Color(0xFFFAF7F5);
-  static const Color textPrimary = Color(0xFF2E2E2E);
-  static const Color textSecondary = Color(0xFF6F6F6F);
+  static const Color primary = AppColors.primary;
+  static const Color background = AppColors.background;
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
 
   static const LatLng _defaultLocation = LatLng(1.8631, 103.0900);
 
@@ -61,7 +62,8 @@ class _MapPickerPageState extends State<MapPickerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final supportsMap = kIsWeb || defaultTargetPlatform == TargetPlatform.android;
+    final supportsMap =
+        kIsWeb || defaultTargetPlatform == TargetPlatform.android;
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
@@ -117,18 +119,22 @@ class _MapPickerPageState extends State<MapPickerPage> {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             child: SizedBox(
               width: double.infinity,
-              height: 48,
+              height: 54,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primary,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(27),
                   ),
                 ),
                 onPressed: supportsMap ? _confirmSelection : null,
                 child: const Text(
                   "Use This Location",
-                  style: TextStyle(fontSize: 15),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
             ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:clayamour/pages/auth_page.dart';
+import 'package:clayamour/theme/app_theme.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -13,10 +14,10 @@ class _LandingPageState extends State<LandingPage> {
   int _currentPage = 0;
 
   // 🎨 ClayAmour palette
-  static const Color primary = Color(0xFFE8A0BF);
-  static const Color background = Color(0xFFFAF7F5);
-  static const Color textPrimary = Color(0xFF2E2E2E);
-  static const Color textSecondary = Color(0xFF6F6F6F);
+  static const Color primary = AppColors.primary;
+  static const Color background = AppColors.background;
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
 
   void _goToAuth() {
     Navigator.pushReplacement(
@@ -32,18 +33,40 @@ class _LandingPageState extends State<LandingPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // 🔹 Top bar with Skip
+            // 🔹 Top bar with Logo and Skip
             Padding(
-              padding: const EdgeInsets.only(top: 12, right: 16),
-              child: Align(
-                alignment: Alignment.topRight,
-                child: TextButton(
-                  onPressed: _goToAuth,
-                  child: const Text(
-                    "Skip",
-                    style: TextStyle(color: textSecondary),
+              padding: const EdgeInsets.only(top: 12, left: 16, right: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Logo
+                  Image.asset(
+                    'assets/logo.png',
+                    height: 50,
+                    fit: BoxFit.contain,
                   ),
-                ),
+                  // Skip button
+                  TextButton(
+                    onPressed: _goToAuth,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
+                      backgroundColor: Colors.white.withOpacity(0.9),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: const Text(
+                      "Skip",
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -86,36 +109,52 @@ class _LandingPageState extends State<LandingPage> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
             // 🚀 CTA (ONLY on last page)
             if (_currentPage == 2)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: SizedBox(
+                child: Container(
                   width: double.infinity,
-                  height: 54,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [primary, Color(0xFFC97C5D)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primary.withOpacity(0.4),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primary,
-                      elevation: 5,
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
+                        borderRadius: BorderRadius.circular(28),
                       ),
                     ),
                     onPressed: _goToAuth,
                     child: const Text(
                       "Start Designing",
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 17,
                         fontWeight: FontWeight.w700,
+                        color: Colors.white,
                       ),
                     ),
                   ),
                 ),
               ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 36),
           ],
         ),
       ),
@@ -170,20 +209,12 @@ class _OnboardPageState extends State<_OnboardPage>
       duration: const Duration(milliseconds: 450),
     );
 
-    _fade = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    );
+    _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
 
     _slide = Tween<Offset>(
       begin: const Offset(0, 0.06),
       end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
     _controller.forward();
   }
@@ -207,10 +238,10 @@ class _OnboardPageState extends State<_OnboardPage>
             children: [
               // 🌸 Hero Card
               Container(
-                height: 240,
+                height: 260,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(36),
+                  borderRadius: BorderRadius.circular(32),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -219,13 +250,49 @@ class _OnboardPageState extends State<_OnboardPage>
                       _LandingPageState.primary.withAlpha((0.08 * 255).round()),
                     ],
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _LandingPageState.primary.withOpacity(0.2),
+                      blurRadius: 30,
+                      offset: const Offset(0, 15),
+                    ),
+                  ],
                 ),
-                child: Center(
-                  child: Icon(
-                    widget.icon,
-                    size: 56,
-                    color: _LandingPageState.primary,
-                  ),
+                child: Stack(
+                  children: [
+                    // Decorative circles
+                    Positioned(
+                      top: -20,
+                      right: -20,
+                      child: Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(0.1),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: -30,
+                      left: -30,
+                      child: Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(0.08),
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Icon(
+                        widget.icon,
+                        size: 72,
+                        color: _LandingPageState.primary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
@@ -260,4 +327,3 @@ class _OnboardPageState extends State<_OnboardPage>
     );
   }
 }
-

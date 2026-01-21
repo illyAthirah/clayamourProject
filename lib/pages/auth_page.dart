@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:clayamour/services/firebase_service.dart';
 import 'main_nav_page.dart';
+import 'package:clayamour/theme/app_theme.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -18,12 +19,15 @@ class _AuthPageState extends State<AuthPage> {
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
 
+  double _passwordStrength = 0.0;
+  String _passwordStrengthText = '';
+
   // 🎨 ClayAmour palette
-  static const Color primary = Color(0xFFE8A0BF);
-  static const Color background = Color(0xFFFAF7F5);
-  static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF2E2E2E);
-  static const Color textSecondary = Color(0xFF6F6F6F);
+  static const Color primary = AppColors.primary;
+  static const Color background = AppColors.background;
+  static const Color surface = AppColors.surface;
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
 
   @override
   void dispose() {
@@ -32,6 +36,40 @@ class _AuthPageState extends State<AuthPage> {
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
     super.dispose();
+  }
+
+  void _checkPasswordStrength(String password) {
+    if (password.isEmpty) {
+      setState(() {
+        _passwordStrength = 0.0;
+        _passwordStrengthText = '';
+      });
+      return;
+    }
+
+    double strength = 0.0;
+    if (password.length >= 8) strength += 0.25;
+    if (password.length >= 12) strength += 0.15;
+    if (RegExp(r'[a-z]').hasMatch(password)) strength += 0.15;
+    if (RegExp(r'[A-Z]').hasMatch(password)) strength += 0.15;
+    if (RegExp(r'[0-9]').hasMatch(password)) strength += 0.15;
+    if (RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(password)) strength += 0.15;
+
+    String text;
+    if (strength < 0.3) {
+      text = 'Weak';
+    } else if (strength < 0.6) {
+      text = 'Fair';
+    } else if (strength < 0.8) {
+      text = 'Good';
+    } else {
+      text = 'Strong';
+    }
+
+    setState(() {
+      _passwordStrength = strength;
+      _passwordStrengthText = text;
+    });
   }
 
   @override
@@ -44,21 +82,62 @@ class _AuthPageState extends State<AuthPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 40),
+              const SizedBox(height: 20),
 
-              // 🌸 Brand
-              const Text(
-                "ClayAmour",
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  color: textPrimary,
+              // 🌸 Logo with decorative background
+              Center(
+                child: Image.asset(
+                  'assets/logo.png',
+                  height: 80,
+                  fit: BoxFit.contain,
                 ),
               ),
-              const SizedBox(height: 6),
-              const Text(
-                "Handcrafted clay bouquets,\nmade with love and meaning.",
-                style: TextStyle(fontSize: 15, color: textSecondary),
+              const SizedBox(height: 8),
+
+              // 🌸 Brand with decorative background
+              Stack(
+                children: [
+                  Positioned(
+                    top: -50,
+                    right: -50,
+                    child: Container(
+                      width: 150,
+                      height: 150,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            primary.withOpacity(0.15),
+                            primary.withOpacity(0.0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "ClayAmour",
+                        style: TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.w800,
+                          color: textPrimary,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        "Handcrafted clay bouquets,\nmade with love and meaning.",
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
 
               const SizedBox(height: 40),
@@ -111,10 +190,17 @@ class _AuthPageState extends State<AuthPage> {
   // 🔁 Login / Register toggle
   Widget _authToggle() {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         color: surface,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -136,8 +222,24 @@ class _AuthPageState extends State<AuthPage> {
           duration: const Duration(milliseconds: 250),
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: active ? primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
+            gradient: active
+                ? const LinearGradient(
+                    colors: [primary, Color(0xFFC97C5D)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: active ? null : Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: primary.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : [],
           ),
           alignment: Alignment.center,
           child: Text(
@@ -145,6 +247,7 @@ class _AuthPageState extends State<AuthPage> {
             style: TextStyle(
               color: active ? Colors.white : textPrimary,
               fontWeight: FontWeight.w600,
+              fontSize: 15,
             ),
           ),
         ),
@@ -171,10 +274,19 @@ class _AuthPageState extends State<AuthPage> {
         children: [
           if (!isLogin) _input("Full Name", controller: _nameCtrl),
           _input("Email", controller: _emailCtrl),
-          _input("Password", controller: _passwordCtrl, obscure: true),
+          _input(
+            "Password",
+            controller: _passwordCtrl,
+            obscure: true,
+            onChanged: !isLogin ? _checkPasswordStrength : null,
+          ),
+          if (!isLogin && _passwordCtrl.text.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _passwordStrengthIndicator(),
+            const SizedBox(height: 8),
+          ],
           if (!isLogin)
-            _input("Confirm Password",
-                controller: _confirmCtrl, obscure: true),
+            _input("Confirm Password", controller: _confirmCtrl, obscure: true),
         ],
       ),
     );
@@ -184,12 +296,14 @@ class _AuthPageState extends State<AuthPage> {
     String label, {
     required TextEditingController controller,
     bool obscure = false,
+    void Function(String)? onChanged,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextField(
         controller: controller,
         obscureText: obscure,
+        onChanged: onChanged,
         decoration: InputDecoration(
           labelText: label,
           filled: true,
@@ -203,14 +317,73 @@ class _AuthPageState extends State<AuthPage> {
     );
   }
 
+  Widget _passwordStrengthIndicator() {
+    Color strengthColor;
+    if (_passwordStrength < 0.3) {
+      strengthColor = Colors.red;
+    } else if (_passwordStrength < 0.6) {
+      strengthColor = Colors.orange;
+    } else if (_passwordStrength < 0.8) {
+      strengthColor = Colors.yellow.shade700;
+    } else {
+      strengthColor = Colors.green;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: _passwordStrength,
+                  backgroundColor: Colors.grey.shade300,
+                  color: strengthColor,
+                  minHeight: 6,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              _passwordStrengthText,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: strengthColor,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   // 🚀 Primary CTA
   Widget _primaryButton() {
-    return SizedBox(
+    return Container(
       width: double.infinity,
-      height: 52,
+      height: 54,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [primary, Color(0xFFC97C5D)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: primary.withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primary,
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
@@ -218,7 +391,11 @@ class _AuthPageState extends State<AuthPage> {
         onPressed: _loading ? null : _submit,
         child: Text(
           _loading ? "Please wait..." : (isLogin ? "Login" : "Create Account"),
-          style: const TextStyle(fontSize: 16),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
       ),
     );
@@ -246,14 +423,15 @@ class _AuthPageState extends State<AuthPage> {
   }) {
     return SizedBox(
       width: double.infinity,
-      height: 48,
+      height: 52,
       child: OutlinedButton.icon(
-        icon: Icon(icon),
-        label: Text(label),
+        icon: Icon(icon, size: 22),
+        label: Text(label, style: const TextStyle(fontSize: 15)),
         style: OutlinedButton.styleFrom(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         ),
         onPressed: _loading ? null : onPressed ?? () {},
       ),
@@ -319,9 +497,9 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _signInWithGoogle() async {
@@ -341,4 +519,3 @@ class _AuthPageState extends State<AuthPage> {
     }
   }
 }
-

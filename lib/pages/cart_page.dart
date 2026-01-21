@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:clayamour/pages/checkout_page.dart';
 import 'package:clayamour/services/firebase_service.dart';
+import 'package:clayamour/theme/app_theme.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -12,11 +13,11 @@ class CartPage extends StatefulWidget {
 
 class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
   // ClayAmour palette
-  static const Color primary = Color(0xFFE8A0BF);
-  static const Color background = Color(0xFFFAF7F5);
-  static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF2E2E2E);
-  static const Color textSecondary = Color(0xFF6F6F6F);
+  static const Color primary = AppColors.primary;
+  static const Color background = AppColors.background;
+  static const Color surface = AppColors.surface;
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -34,9 +35,10 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       body: uid == null
           ? const Center(child: Text("Please sign in to view cart."))
           : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: FirebaseService.userSubcollection(uid, 'cart')
-                  .orderBy('readyDate')
-                  .snapshots(),
+              stream: FirebaseService.userSubcollection(
+                uid,
+                'cart',
+              ).orderBy('readyDate').snapshots(),
               builder: (context, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -70,8 +72,8 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     final Map<String, CartDateGroup> grouped = {};
     for (final doc in docs) {
       final data = doc.data();
-      final readyDate = (data['readyDate'] as Timestamp?)?.toDate() ??
-          DateTime.now();
+      final readyDate =
+          (data['readyDate'] as Timestamp?)?.toDate() ?? DateTime.now();
       final key = _dateKey(readyDate);
       grouped[key] ??= CartDateGroup(date: readyDate, items: []);
       grouped[key]!.items.add(CartItem.fromFirestore(doc));
@@ -111,9 +113,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
     if (picked != null) {
       for (final item in group.items) {
-        await item.ref.update({
-          'readyDate': Timestamp.fromDate(picked),
-        });
+        await item.ref.update({'readyDate': Timestamp.fromDate(picked)});
       }
     }
   }
@@ -123,7 +123,89 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
   }
 
   Future<void> _deleteItem(CartItem item) async {
-    await item.ref.delete();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 28),
+            SizedBox(width: 12),
+            Text(
+              'Remove Item?',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to remove "${item.title}" from your cart?',
+              style: const TextStyle(fontSize: 15),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'This action cannot be undone.',
+              style: TextStyle(
+                fontSize: 13,
+                color: textSecondary,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 15,
+                color: textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Remove',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await item.ref.delete();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Item removed from cart'),
+          duration: Duration(seconds: 2),
+          backgroundColor: textSecondary,
+        ),
+      );
+    }
   }
 
   Future<void> _addBouquetForDate(DateTime date) async {
@@ -166,9 +248,11 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
               ...options.map((t) {
                 final active = item.theme == t;
                 return ListTile(
-                  title: Text(t),
-                  trailing:
-                      active ? const Icon(Icons.check, color: primary) : null,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  title: Text(t, style: const TextStyle(fontSize: 15)),
+                  trailing: active
+                      ? const Icon(Icons.check, color: primary)
+                      : null,
                   onTap: () => Navigator.pop(context, t),
                 );
               }),
@@ -200,12 +284,18 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: const Text("Cancel", style: TextStyle(fontSize: 15)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: primary),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primary,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              ),
               onPressed: () => Navigator.pop(context, controller.text.trim()),
-              child: const Text("Save"),
+              child: const Text("Save", style: TextStyle(fontSize: 15)),
             ),
           ],
         );
@@ -219,47 +309,80 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
   Widget _dateGroupCard(CartDateGroup group) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: surface,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(24),
-            onTap: () => _toggleExpand(group),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-              decoration: BoxDecoration(
-                color: primary.withAlpha((0.10 * 255).round()),
-                borderRadius: BorderRadius.circular(24),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.calendar_month, color: primary),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      formatDate(group.date),
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
+              onTap: () => _toggleExpand(group),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      primary.withOpacity(0.15),
+                      primary.withOpacity(0.08),
+                    ],
+                  ),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: primary.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.calendar_month,
+                        color: primary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        formatDate(group.date),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit_calendar, size: 20),
+                      color: primary,
+                      onPressed: () => _pickGroupDate(group),
+                    ),
+                    AnimatedRotation(
+                      duration: const Duration(milliseconds: 220),
+                      turns: group.expanded ? 0.5 : 0.0,
+                      child: const Icon(
+                        Icons.keyboard_arrow_down,
                         color: textPrimary,
                       ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    color: textPrimary,
-                    onPressed: () => _pickGroupDate(group),
-                  ),
-                  AnimatedRotation(
-                    duration: const Duration(milliseconds: 220),
-                    turns: group.expanded ? 0.5 : 0.0,
-                    child: const Icon(Icons.keyboard_arrow_down),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -268,23 +391,31 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
             curve: Curves.easeOutCubic,
             child: group.expanded
                 ? Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
                     child: Column(
                       children: [
                         ...group.items.map(_cartItemCard),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: primary,
-                            side: BorderSide(color: primary.withAlpha((0.55 * 255).round())),
+                            side: BorderSide(
+                              color: primary.withOpacity(0.6),
+                              width: 1.5,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 16,
+                            ),
                           ),
                           onPressed: () => _addBouquetForDate(group.date),
-                          icon: const Icon(Icons.add),
+                          icon: const Icon(Icons.add_circle_outline),
                           label: const Text(
                             "Add another bouquet for this date",
+                            style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
                       ],
@@ -299,22 +430,34 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
   Widget _cartItemCard(CartItem item) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.black.withAlpha((0.05 * 255).round())),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: primary.withOpacity(0.12), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Row(
             children: [
-              Checkbox(
-                value: item.selected,
-                activeColor: primary,
-                onChanged: (v) =>
-                    item.ref.update({'selected': v ?? true}),
+              Transform.scale(
+                scale: 1.1,
+                child: Checkbox(
+                  value: item.selected,
+                  activeColor: primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  onChanged: (v) => item.ref.update({'selected': v ?? true}),
+                ),
               ),
               Expanded(
                 child: Column(
@@ -324,10 +467,11 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                       item.title,
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
+                        fontSize: 15,
                         color: textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
                       item.subtitle,
                       style: const TextStyle(
@@ -338,13 +482,17 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () => _deleteItem(item),
+              Material(
+                color: Colors.red.withOpacity(0.1),
+                shape: const CircleBorder(),
+                child: IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  onPressed: () => _deleteItem(item),
+                ),
               ),
             ],
           ),
-          const Divider(height: 18),
+          const Divider(height: 24),
           if (item.type == CartItemType.readyMade) ...[
             _pillRow(
               icon: Icons.local_florist,
@@ -354,16 +502,17 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
           ] else ...[
             if (item.flowers.isNotEmpty) ...[
               _sectionMiniTitle("Flowers"),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               ...item.flowers.values.map((li) => _qtyLine(item, li, 'flowers')),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
             ],
             if (item.characters.isNotEmpty) ...[
               _sectionMiniTitle("Characters"),
-              const SizedBox(height: 6),
-              ...item.characters.values
-                  .map((li) => _qtyLine(item, li, 'characters')),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
+              ...item.characters.values.map(
+                (li) => _qtyLine(item, li, 'characters'),
+              ),
+              const SizedBox(height: 12),
             ],
             _editableInfo(
               label: "Theme",
@@ -377,7 +526,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
               onTap: () => _editMessage(item),
             ),
           ],
-          const Divider(height: 18),
+          const Divider(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -385,6 +534,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                 "Bouquet total",
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
+                  fontSize: 14,
                   color: textPrimary,
                 ),
               ),
@@ -392,12 +542,25 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                 duration: const Duration(milliseconds: 220),
                 transitionBuilder: (child, anim) =>
                     ScaleTransition(scale: anim, child: child),
-                child: Text(
-                  "RM${item.totalPrice}",
+                child: Container(
                   key: ValueKey(item.totalPrice),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: primary,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [primary, Color(0xFFC97C5D)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    "RM${item.totalPrice}",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -466,11 +629,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     final map = Map<String, dynamic>.from(
       kind == 'flowers' ? item.flowers : item.characters,
     );
-    map[li.name] = {
-      'name': li.name,
-      'unitPrice': li.unitPrice,
-      'qty': li.qty,
-    };
+    map[li.name] = {'name': li.name, 'unitPrice': li.unitPrice, 'qty': li.qty};
     await item.ref.update({kind: map});
   }
 
@@ -550,15 +709,15 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
   Widget _checkoutBar(int selectedCount, int selectedTotal) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      decoration: const BoxDecoration(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, -2),
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
           ),
         ],
       ),
@@ -578,14 +737,15 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                       "Selected: $selectedCount bouquet${selectedCount == 1 ? "" : "s"}",
                       style: const TextStyle(
                         color: textSecondary,
-                        fontSize: 12,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       "RM$selectedTotal",
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: FontWeight.w900,
                         color: primary,
                       ),
@@ -594,14 +754,30 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                 ),
               ),
             ),
-            SizedBox(
-              height: 48,
+            const SizedBox(width: 12),
+            Container(
+              height: 54,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [primary, Color(0xFFC97C5D)],
+                ),
+                borderRadius: BorderRadius.circular(27),
+                boxShadow: [
+                  BoxShadow(
+                    color: primary.withOpacity(0.4),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: primary,
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(27),
                   ),
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
                 ),
                 onPressed: selectedCount == 0
                     ? null
@@ -615,7 +791,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                       },
                 child: const Text(
                   "Checkout",
-                  style: TextStyle(fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
               ),
             ),
@@ -756,4 +932,3 @@ class _TotalSummary {
     return _TotalSummary(total, count);
   }
 }
-

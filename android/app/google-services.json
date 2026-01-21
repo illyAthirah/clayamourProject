@@ -12,7 +12,20 @@
           "package_name": "com.example.clayamour"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "909615921530-6tsc9m2caag21hrg0jnlq06ehtdv33iu.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.clayamour",
+            "certificate_hash": "5cfbfc69d472c97d16970dc53bc3cb35b2ea0d11"
+          }
+        },
+        {
+          "client_id": "909615921530-ukiirj14na9sc8ot9s0fvgajdgbdgb7r.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyB9rlwWQqW2E5kIOwTB_TVSDPAUHdUcHbo"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "909615921530-ukiirj14na9sc8ot9s0fvgajdgbdgb7r.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "909615921530-u03svrg2aaq9rgg222qf62dil9bl6f0d.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.clayamour"
+              }
+            }
+          ]
         }
       }
     }

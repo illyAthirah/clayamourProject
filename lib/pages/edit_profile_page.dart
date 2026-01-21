@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:clayamour/services/firebase_service.dart';
 import 'package:flutter/services.dart';
+import 'package:clayamour/theme/app_theme.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -12,11 +13,11 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   // ClayAmour palette
-  static const Color primary = Color(0xFFE8A0BF);
-  static const Color background = Color(0xFFFAF7F5);
-  static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF2E2E2E);
-  static const Color textSecondary = Color(0xFF6F6F6F);
+  static const Color primary = AppColors.primary;
+  static const Color background = AppColors.background;
+  static const Color surface = AppColors.surface;
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
 
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
@@ -81,7 +82,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           children: [
                             const CircleAvatar(
                               radius: 48,
-                              backgroundColor: Color(0xFFEED6C4),
+                              backgroundColor: AppColors.softAccent,
                               child: Icon(Icons.person, size: 50),
                             ),
                             Positioned(
@@ -121,18 +122,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
         color: background,
         child: SizedBox(
           width: double.infinity,
-          height: 48,
+          height: 54,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: primary,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(27),
               ),
             ),
             onPressed: _saving ? null : _save,
             child: Text(
               _saving ? "Saving..." : "Save Changes",
-              style: const TextStyle(fontSize: 15),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
         ),

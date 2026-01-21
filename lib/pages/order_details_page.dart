@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:clayamour/services/firebase_service.dart';
+import 'package:clayamour/theme/app_theme.dart';
 
-class OrderDetailsPage extends StatelessWidget {
+class OrderDetailsPage extends StatefulWidget {
   final String orderId;
   final Map<String, dynamic> data;
 
@@ -11,21 +13,33 @@ class OrderDetailsPage extends StatelessWidget {
     required this.data,
   });
 
+  @override
+  State<OrderDetailsPage> createState() => _OrderDetailsPageState();
+}
+
+class _OrderDetailsPageState extends State<OrderDetailsPage> {
+
   // ClayAmour palette
-  static const Color primary = Color(0xFFE8A0BF);
-  static const Color background = Color(0xFFFAF7F5);
-  static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF2E2E2E);
-  static const Color textSecondary = Color(0xFF6F6F6F);
+  static const Color primary = AppColors.primary;
+  static const Color background = AppColors.background;
+  static const Color surface = AppColors.surface;
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
 
   @override
   Widget build(BuildContext context) {
-    final status = data['status']?.toString() ?? 'Placed';
-    final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
-    final total = data['total'] ?? 0;
-    final items = (data['items'] as List<dynamic>? ?? [])
+    final status = widget.data['status']?.toString() ?? 'Placed';
+    final createdAt = (widget.data['createdAt'] as Timestamp?)?.toDate();
+    final total = widget.data['total'] ?? 0;
+    final items = (widget.data['items'] as List<dynamic>? ?? [])
         .map((e) => e as Map<String, dynamic>)
         .toList();
+    
+    // Check if order can be cancelled (within 1 hour of placement)
+    final canCancel = createdAt != null &&
+        status.toLowerCase() == 'placed' &&
+        DateTime.now().difference(createdAt).inHours < 1;
+
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
@@ -55,10 +69,98 @@ class OrderDetailsPage extends StatelessWidget {
             _detailsCard(items),
             const SizedBox(height: 32),
             _paymentSummary(total),
+            if (canCancel) ...[
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text('Cancel Order'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: () => _cancelOrder(context),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Orders can only be cancelled within 1 hour of placement',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _cancelOrder(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Order?'),
+        content: const Text(
+          'Are you sure you want to cancel this order? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: const Text('No', style: TextStyle(fontSize: 15)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: const Text('Yes, Cancel', style: TextStyle(fontSize: 15)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final uid = FirebaseService.uid;
+      if (uid == null) return;
+
+      await FirebaseService.userSubcollection(uid, 'orders')
+          .doc(widget.orderId)
+          .update({
+        'status': 'Cancelled',
+        'cancelledAt': FieldValue.serverTimestamp(),
+      });
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Order cancelled successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to cancel order: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _orderHeader(String status, DateTime? createdAt) {
@@ -82,7 +184,7 @@ class OrderDetailsPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "Order $orderId",
+                "Order #${widget.orderId.substring(0, 8)}",
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
@@ -371,4 +473,5 @@ class _StatusBadge extends StatelessWidget {
     }
   }
 }
+
 

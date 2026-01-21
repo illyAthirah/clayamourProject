@@ -8,17 +8,19 @@ import 'package:clayamour/pages/change_password_page.dart';
 import 'package:clayamour/pages/help_center_page.dart';
 import 'package:clayamour/pages/about_clayamour_page.dart';
 import 'package:clayamour/pages/auth_page.dart';
+import 'package:clayamour/pages/payment_history_page.dart';
 import 'package:clayamour/services/firebase_service.dart';
+import 'package:clayamour/theme/app_theme.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
   // ClayAmour palette
-  static const Color primary = Color(0xFFE8A0BF);
-  static const Color background = Color(0xFFFAF7F5);
-  static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF2E2E2E);
-  static const Color textSecondary = Color(0xFF6F6F6F);
+  static const Color primary = AppColors.primary;
+  static const Color background = AppColors.background;
+  static const Color surface = AppColors.surface;
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +91,18 @@ class ProfilePage extends StatelessWidget {
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => const DeliveryAddressesPage(),
+                                ),
+                              );
+                            },
+                          ),
+                          _item(
+                            Icons.payment_outlined,
+                            "Payment History",
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const PaymentHistoryPage(),
                                 ),
                               );
                             },
@@ -168,35 +182,62 @@ class ProfilePage extends StatelessWidget {
 
   Widget _profileHeader({required String name, required String email}) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: surface,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [primary.withOpacity(0.15), primary.withOpacity(0.05)],
+        ),
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: primary.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: primary.withAlpha((0.2 * 255).round()),
-            child: const Icon(Icons.person, size: 30, color: primary),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [primary, Color(0xFFC97C5D)],
+              ),
+            ),
+            child: CircleAvatar(
+              radius: 32,
+              backgroundColor: Colors.white,
+              child: const Icon(Icons.person, size: 36, color: primary),
+            ),
           ),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: textPrimary,
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    color: textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                email,
-                style: const TextStyle(fontSize: 13, color: textSecondary),
-              ),
-            ],
+                const SizedBox(height: 6),
+                Text(
+                  email,
+                  style: const TextStyle(fontSize: 13, color: textSecondary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -205,10 +246,17 @@ class ProfilePage extends StatelessWidget {
 
   Widget _sectionCard({required String title, required List<Widget> items}) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.symmetric(vertical: 18),
       decoration: BoxDecoration(
         color: surface,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,12 +266,13 @@ class ProfilePage extends StatelessWidget {
             child: Text(
               title,
               style: const TextStyle(
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
                 color: textPrimary,
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           ...items,
         ],
       ),
@@ -231,38 +280,64 @@ class ProfilePage extends StatelessWidget {
   }
 
   Widget _item(IconData icon, String label, {VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: textSecondary),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(fontSize: 14, color: textPrimary),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 20, color: primary),
               ),
-            ),
-            const Icon(Icons.chevron_right, color: textSecondary),
-          ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: textPrimary,
+                  ),
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: textSecondary, size: 20),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _logoutButton(BuildContext context) {
-    return SizedBox(
+    return Container(
       width: double.infinity,
-      height: 50,
-      child: OutlinedButton(
+      height: 54,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(27),
+        border: Border.all(color: Colors.red, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withOpacity(0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: OutlinedButton.icon(
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.red,
-          side: const BorderSide(color: Colors.red),
+          side: BorderSide.none,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(27),
           ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         ),
         onPressed: () async {
           await FirebaseService.signOut();
@@ -273,9 +348,10 @@ class ProfilePage extends StatelessWidget {
             (route) => false,
           );
         },
-        child: const Text(
+        icon: const Icon(Icons.logout, size: 20),
+        label: const Text(
           "Logout",
-          style: TextStyle(fontWeight: FontWeight.w600),
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
         ),
       ),
     );

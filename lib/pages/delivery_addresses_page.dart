@@ -5,16 +5,17 @@ import 'package:clayamour/pages/add_address_page.dart';
 import 'package:clayamour/pages/edit_address_page.dart';
 import 'package:clayamour/pages/map_picker_page.dart';
 import 'package:clayamour/services/firebase_service.dart';
+import 'package:clayamour/theme/app_theme.dart';
 
 class DeliveryAddressesPage extends StatelessWidget {
   const DeliveryAddressesPage({super.key});
 
   // ClayAmour palette
-  static const Color primary = Color(0xFFE8A0BF);
-  static const Color background = Color(0xFFFAF7F5);
-  static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF2E2E2E);
-  static const Color textSecondary = Color(0xFF6F6F6F);
+  static const Color primary = AppColors.primary;
+  static const Color background = AppColors.background;
+  static const Color surface = AppColors.surface;
+  static const Color textPrimary = AppColors.textPrimary;
+  static const Color textSecondary = AppColors.textSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -271,4 +272,5 @@ class DeliveryAddressesPage extends StatelessWidget {
     }
   }
 }
+
 
