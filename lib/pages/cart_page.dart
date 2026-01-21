@@ -11,6 +11,24 @@ class CartPage extends StatefulWidget {
 }
 
 class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
+  final Map<String, bool> _expandedState = {};
+
+  String _cartItemImage(CartItem item) {
+    final name = item.subtitle.toLowerCase();
+
+    final fileName = name
+        .replaceAll('&', 'and')
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+        .replaceAll(' ', '_');
+
+    if (item.type == CartItemType.custom) {
+      return 'assets/single/$fileName.png';
+    }
+
+    // ready-made bouquets
+    return 'assets/flowers/$fileName.png';
+  }
+
   // ClayAmour palette
   static const Color primary = Color(0xFFE8A0BF);
   static const Color background = Color(0xFFFAF7F5);
@@ -34,9 +52,10 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       body: uid == null
           ? const Center(child: Text("Please sign in to view cart."))
           : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: FirebaseService.userSubcollection(uid, 'cart')
-                  .orderBy('readyDate')
-                  .snapshots(),
+              stream: FirebaseService.userSubcollection(
+                uid,
+                'cart',
+              ).orderBy('readyDate').snapshots(),
               builder: (context, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -68,17 +87,24 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
   ) {
     final Map<String, CartDateGroup> grouped = {};
+
     for (final doc in docs) {
       final data = doc.data();
-      final readyDate = (data['readyDate'] as Timestamp?)?.toDate() ??
-          DateTime.now();
+      final readyDate =
+          (data['readyDate'] as Timestamp?)?.toDate() ?? DateTime.now();
+
       final key = _dateKey(readyDate);
-      grouped[key] ??= CartDateGroup(date: readyDate, items: []);
+
+      grouped[key] ??= CartDateGroup(
+        date: readyDate,
+        items: [],
+        expanded: _expandedState[key] ?? true,
+      );
+
       grouped[key]!.items.add(CartItem.fromFirestore(doc));
     }
-    final groups = grouped.values.toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
-    return groups;
+
+    return grouped.values.toList()..sort((a, b) => a.date.compareTo(b.date));
   }
 
   String _dateKey(DateTime d) => "${d.year}-${d.month}-${d.day}";
@@ -111,16 +137,17 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
     if (picked != null) {
       for (final item in group.items) {
-        await item.ref.update({
-          'readyDate': Timestamp.fromDate(picked),
-        });
+        await item.ref.update({'readyDate': Timestamp.fromDate(picked)});
       }
     }
   }
 
   void _toggleExpand(CartDateGroup group) {
-    setState(() => group.expanded = !group.expanded);
-  }
+  setState(() {
+    group.expanded = !group.expanded;
+    _expandedState[_dateKey(group.date)] = group.expanded;
+  });
+}
 
   Future<void> _deleteItem(CartItem item) async {
     await item.ref.delete();
@@ -167,8 +194,9 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                 final active = item.theme == t;
                 return ListTile(
                   title: Text(t),
-                  trailing:
-                      active ? const Icon(Icons.check, color: primary) : null,
+                  trailing: active
+                      ? const Icon(Icons.check, color: primary)
+                      : null,
                   onTap: () => Navigator.pop(context, t),
                 );
               }),
@@ -215,6 +243,28 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     if (newMessage != null) {
       await item.ref.update({'message': newMessage});
     }
+  }
+
+  Widget _bouquetThumbnail(CartItem item) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: 56,
+        height: 56,
+        color: background,
+        child: Image.asset(
+          _cartItemImage(item),
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) {
+            return const Icon(
+              Icons.local_florist,
+              color: Colors.grey,
+              size: 28,
+            );
+          },
+        ),
+      ),
+    );
   }
 
   Widget _dateGroupCard(CartDateGroup group) {
@@ -276,7 +326,9 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: primary,
-                            side: BorderSide(color: primary.withAlpha((0.55 * 255).round())),
+                            side: BorderSide(
+                              color: primary.withAlpha((0.55 * 255).round()),
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
@@ -309,13 +361,17 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       child: Column(
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _bouquetThumbnail(item),
+              const SizedBox(width: 12),
+
               Checkbox(
                 value: item.selected,
                 activeColor: primary,
-                onChanged: (v) =>
-                    item.ref.update({'selected': v ?? true}),
+                onChanged: (v) => item.ref.update({'selected': v ?? true}),
               ),
+
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,23 +383,27 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                         color: textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
                       item.subtitle,
                       style: const TextStyle(
                         color: textSecondary,
                         fontSize: 13,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
+
               IconButton(
                 icon: const Icon(Icons.delete_outline),
                 onPressed: () => _deleteItem(item),
               ),
             ],
           ),
+
           const Divider(height: 18),
           if (item.type == CartItemType.readyMade) ...[
             _pillRow(
@@ -361,8 +421,64 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
             if (item.characters.isNotEmpty) ...[
               _sectionMiniTitle("Characters"),
               const SizedBox(height: 6),
-              ...item.characters.values
-                  .map((li) => _qtyLine(item, li, 'characters')),
+              ...item.characters.values.map((li) {
+                final fileName = li.name
+                    .toLowerCase()
+                    .replaceAll('&', 'and')
+                    .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+                    .replaceAll(' ', '_');
+
+                return Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.asset(
+                        'assets/characters/$fileName.png',
+                        width: 36,
+                        height: 36,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.person,
+                          size: 24,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+
+                    Expanded(
+                      child: Text(
+                        "${li.name} - RM${li.unitPrice} each",
+                        style: const TextStyle(color: textPrimary),
+                      ),
+                    ),
+
+                    _qtyBtn(
+                      icon: Icons.remove,
+                      onTap: () async {
+                        if (li.qty <= 0) return;
+                        li.qty--;
+                        await _updateLineItem(item, li, 'characters');
+                      },
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text(
+                        "${li.qty}",
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    _qtyBtn(
+                      icon: Icons.add,
+                      onTap: () async {
+                        li.qty++;
+                        await _updateLineItem(item, li, 'characters');
+                      },
+                    ),
+                  ],
+                );
+              }),
+
               const SizedBox(height: 10),
             ],
             _editableInfo(
@@ -466,11 +582,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     final map = Map<String, dynamic>.from(
       kind == 'flowers' ? item.flowers : item.characters,
     );
-    map[li.name] = {
-      'name': li.name,
-      'unitPrice': li.unitPrice,
-      'qty': li.qty,
-    };
+    map[li.name] = {'name': li.name, 'unitPrice': li.unitPrice, 'qty': li.qty};
     await item.ref.update({kind: map});
   }
 
@@ -697,19 +809,25 @@ class CartItem {
   }
 
   static Map<String, CartLineItem> _lineItemsFromMap(dynamic raw) {
-    if (raw is! Map<String, dynamic>) return {};
-    return raw.map((key, value) {
-      final v = value as Map<String, dynamic>;
-      return MapEntry(
-        key,
-        CartLineItem(
-          name: v['name']?.toString() ?? key,
-          unitPrice: (v['unitPrice'] as num?)?.toInt() ?? 0,
-          qty: (v['qty'] as num?)?.toInt() ?? 0,
-        ),
-      );
-    });
+  if (raw == null || raw is! Map<String, dynamic>) {
+    return <String, CartLineItem>{};
   }
+
+  final Map<String, CartLineItem> result = {};
+
+  raw.forEach((key, value) {
+    if (value is Map<String, dynamic>) {
+      result[key] = CartLineItem(
+        name: value['name']?.toString() ?? key,
+        unitPrice: (value['unitPrice'] as num?)?.toInt() ?? 0,
+        qty: (value['qty'] as num?)?.toInt() ?? 0,
+      );
+    }
+  });
+
+  return result;
+}
+
 
   int get totalPrice {
     if (type == CartItemType.readyMade) return price ?? 0;
@@ -756,4 +874,3 @@ class _TotalSummary {
     return _TotalSummary(total, count);
   }
 }
-
