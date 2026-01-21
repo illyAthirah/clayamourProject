@@ -22,6 +22,33 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   static const Color textPrimary = Color(0xFF2E2E2E);
   static const Color textSecondary = Color(0xFF6F6F6F);
 
+  String _imageFromProduct(Map<String, dynamic> product) {
+    final name = product['name'].toString().toLowerCase();
+    final category = product['category'];
+
+    final fileName = name
+        .replaceAll('&', 'and')
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+        .replaceAll(' ', '_');
+
+    switch (category) {
+      case 'Flowers':
+        return 'assets/flowers/$fileName.png';
+
+      case 'Characters':
+        return 'assets/characters/$fileName.png';
+
+      case 'Add-Ons':
+        return 'assets/add_ons/$fileName.png';
+
+      case 'Custom':
+        return 'assets/single/$fileName.png';
+
+      default:
+        return 'assets/flowers/$fileName.png';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final product = widget.product;
@@ -45,8 +72,17 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _productImage(),
-            const SizedBox(height: 24),
-            _productInfo(name, price),
+            const SizedBox(height: 32),
+
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: surface,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: _productInfo(name, price),
+            ),
+
             const SizedBox(height: 28),
             _calendarSection(),
             const SizedBox(height: 36),
@@ -58,14 +94,26 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   Widget _productImage() {
-    return Container(
-      height: 260,
-      decoration: BoxDecoration(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: Container(
         color: accent,
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: const Center(
-        child: Icon(Icons.local_florist, size: 64),
+        child: AspectRatio(
+          aspectRatio: 4 / 3, // perfect for bouquet photos
+          child: Image.asset(
+            _imageFromProduct(widget.product),
+            fit: BoxFit.contain, // 👈 NO CROPPING
+            errorBuilder: (_, __, ___) {
+              return const Center(
+                child: Icon(
+                  Icons.image_not_supported_outlined,
+                  size: 64,
+                  color: Colors.grey,
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -86,8 +134,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         Text(
           "From RM$price",
           style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
             color: primary,
           ),
         ),
@@ -137,10 +185,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     _readyDate == null
                         ? "Select an available date (3-4 weeks preparation)"
                         : _formatDate(_readyDate!),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: textSecondary,
-                    ),
+                    style: const TextStyle(fontSize: 14, color: textSecondary),
                   ),
                 ),
                 const Icon(Icons.arrow_forward_ios, size: 14),
@@ -223,9 +268,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     final uid = FirebaseService.uid;
     if (uid == null) return;
 
-    final selectedDate = _readyDate ?? DateTime.now().add(
-      const Duration(days: 21),
-    );
+    final selectedDate =
+        _readyDate ?? DateTime.now().add(const Duration(days: 21));
     final cart = FirebaseService.userSubcollection(uid, 'cart');
     await cart.add({
       'type': 'readyMade',
@@ -237,8 +281,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       'createdAt': FieldValue.serverTimestamp(),
     });
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Added to cart.")),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Added to cart.")));
   }
 }
