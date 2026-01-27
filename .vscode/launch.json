@@ -1,0 +1,34 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "clayamour",
+            "request": "launch",
+            "type": "dart",
+            "args": [
+                "--web-port",
+                "5000"
+            ]
+        },
+        {
+            "name": "clayamour (profile)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile",
+            "args": [
+                "--web-port",
+                "5000"
+            ]
+        },
+        {
+            "name": "clayamour (release)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release",
+            "args": [
+                "--web-port",
+                "5000"
+            ]
+        }
+    ]
+}
